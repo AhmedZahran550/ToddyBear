@@ -37,6 +37,13 @@ export class DevicesService extends DatabaseService<Device> {
     return this.findOneBy({ macAddress: macAddress.toUpperCase().trim() } as any);
   }
 
+  async findByMacAddressWithUser(macAddress: string): Promise<Device | null> {
+    return this.deviceRepo.findOne({
+      where: { macAddress: macAddress.toUpperCase().trim() },
+      relations: { user: true },
+    });
+  }
+
   async findByUser(userId: string, pagination: PaginationQueryDto) {
     return this.findAll(pagination, { where: { userId } });
   }

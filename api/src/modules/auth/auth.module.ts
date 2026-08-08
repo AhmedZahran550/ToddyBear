@@ -8,6 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { OtpModule } from '../otp/otp.module';
 import { UsersModule } from '../users/users.module';
 import { EmployeesModule } from '../employees/employees.module';
+import { DevicesModule } from '../devices/devices.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { EmployeesModule } from '../employees/employees.module';
     OtpModule,
     UsersModule,
     EmployeesModule,
+    DevicesModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

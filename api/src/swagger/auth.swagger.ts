@@ -4,9 +4,38 @@ import { UserLoginDto } from '../modules/auth/dto/user-login.dto';
 import { UserSignupDto } from '../modules/auth/dto/user-signup.dto';
 import { VerifyOtpDto } from '../modules/auth/dto/verify-otp.dto';
 import { EmployeeLoginDto } from '../modules/auth/dto/employee-login.dto';
+import { DeviceLoginDto } from '../modules/auth/dto/device-login.dto';
 
 export function ApiAuthDocs() {
   return ApiTags('Authentication');
+}
+
+export function ApiDeviceLoginDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Device Login',
+      description:
+        'Authenticates hardware device by MAC address. Verifies device is assigned to a user and the user has a verified mobile number. Returns Device JWT Token containing userId and userName.',
+    }),
+    ApiBody({ type: DeviceLoginDto }),
+    ApiResponse({
+      status: 200,
+      description: 'Device authenticated successfully.',
+      schema: {
+        type: 'object',
+        properties: {
+          accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+          device: { type: 'object' },
+          user: { type: 'object' },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 401,
+      description:
+        'Unauthorized - Unregistered MAC, no user assigned, or user mobile unverified / inactive.',
+    }),
+  );
 }
 
 export function ApiUserSignupDocs() {

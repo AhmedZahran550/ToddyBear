@@ -9,9 +9,11 @@ import { JwtService } from '@nestjs/jwt';
 import { OtpService } from '../otp/otp.service';
 import { UsersService } from '../users/users.service';
 import { EmployeesService } from '../employees/employees.service';
+import { DevicesService } from '../devices/devices.service';
 import { EmployeeLoginDto } from './dto/employee-login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { UserSignupDto } from './dto/user-signup.dto';
+import { DeviceLoginDto } from './dto/device-login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { User } from '../../database/entities/user.entity';
 
@@ -22,7 +24,71 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly usersService: UsersService,
     private readonly employeesService: EmployeesService,
+    private readonly devicesService: DevicesService,
   ) {}
+
+  async deviceLogin(dto: DeviceLoginDto): Promise<any> {
+    const device = await this.devicesService.findByMacAddressWithUser(
+      dto.macAddress,
+    );
+
+    if (!device) {
+      throw new UnauthorizedException(
+        `Device MAC ${dto.macAddress} is not registered in the system.`,
+      );
+    }
+
+    if (!device.userId || !device.user) {
+      throw new UnauthorizedException(
+        `Device ${dto.macAddress} is not assigned to any user account.`,
+      );
+    }
+
+    if (!device.user.isMobileVerified) {
+      throw new UnauthorizedException(
+        `The user (${device.user.firstName} ${device.user.lastName}) assigned to device ${dto.macAddress} has not verified their mobile number.`,
+      );
+    }
+
+    if (!device.user.isActive) {
+      throw new UnauthorizedException(
+        `The user account (${device.user.firstName} ${device.user.lastName}) assigned to device ${dto.macAddress} is inactive.`,
+      );
+    }
+
+    const userName =
+      device.user.preferredName ||
+      `${device.user.firstName} ${device.user.lastName}`.trim();
+
+    const payload = {
+      sub: device.id,
+      type: 'device',
+      macAddress: device.macAddress,
+      userId: device.user.id,
+      userName: userName,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
+      device: {
+        id: device.id,
+        macAddress: device.macAddress,
+        name: device.name,
+        gender: device.gender,
+        age: device.age,
+      },
+      user: {
+        id: device.user.id,
+        firstName: device.user.firstName,
+        lastName: device.user.lastName,
+        preferredName: device.user.preferredName,
+        mobileNumber: device.user.mobileNumber,
+        isMobileVerified: device.user.isMobileVerified,
+      },
+    };
+  }
 
   async signupUser(userSignupDto: UserSignupDto): Promise<User> {
     const existingUser = await this.usersService.findByMobileNumber(

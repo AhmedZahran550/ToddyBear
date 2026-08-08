@@ -4,9 +4,11 @@ import { UserLoginDto } from './dto/user-login.dto';
 import { UserSignupDto } from './dto/user-signup.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { EmployeeLoginDto } from './dto/employee-login.dto';
+import { DeviceLoginDto } from './dto/device-login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import {
   ApiAuthDocs,
+  ApiDeviceLoginDocs,
   ApiUserSignupDocs,
   ApiSendUserOtpDocs,
   ApiVerifyUserOtpDocs,
@@ -17,6 +19,13 @@ import {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @ApiDeviceLoginDocs()
+  @Post('device/login')
+  deviceLogin(@Body() deviceLoginDto: DeviceLoginDto) {
+    return this.authService.deviceLogin(deviceLoginDto);
+  }
 
   @Public()
   @ApiUserSignupDocs()
