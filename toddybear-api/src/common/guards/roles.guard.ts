@@ -1,0 +1,31 @@
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { EmployeeRole } from '../../database/entities/employee.entity';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles || requiredRoles.length === 0) {
+      return true;
+    }
+
+    const { user } = context.switchToHttp().getRequest();
+    if (!user) {
+      return false;
+    }
+
+    // Admin has access to all role-protected endpoints
+    if (user.role === EmployeeRole.ADMIN) {
+      return true;
+    }
+
+    return requiredRoles.includes(user.role);
+  }
+}
