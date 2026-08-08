@@ -14,11 +14,13 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
-
+  app.setGlobalPrefix('api');
   app.enableCors();
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  console.log(`🚀 ToddyBear Backend Server running on http://localhost:${port}`);
+  console.log(
+    `🚀 ToddyBear Backend Server running on http://localhost:${port}`,
+  );
 }
 bootstrap();

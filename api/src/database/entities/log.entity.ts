@@ -1,29 +1,32 @@
 import { Entity, Column } from 'typeorm';
 import { BaseEntity } from './base.entity';
 
-@Entity('logs')
+@Entity()
 export class Log extends BaseEntity {
   @Column()
-  method: string;
+  method!: string;
 
   @Column()
-  url: string;
-
-  @Column()
-  statusCode: number;
+  url!: string;
 
   @Column({ nullable: true })
   ip?: string;
 
-  @Column({ type: 'text', nullable: true })
-  requestBody?: string | null;
+  @Column({ nullable: true })
+  userId?: string;
 
-  @Column({ type: 'text', nullable: true })
-  responseBody?: string | null;
+  @Column()
+  statusCode!: number;
 
-  @Column({ type: 'text', nullable: true })
-  errorMessage?: string | null;
+  @Column()
+  responseTime!: number; // in milliseconds
 
-  @Column({ default: 0 })
-  durationMs: number;
+  @Column({ nullable: true })
+  requestId?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  requestBody?: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  error?: any;
 }

@@ -1,54 +1,77 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, HttpException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { LogsService } from '../../modules/logs/logs.service';
+import { redactSensitiveData } from '../utils/redact.util';
 
 @Injectable()
 export class LoggerMiddleware implements NestMiddleware {
   constructor(private readonly logsService: LogsService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
+    const requestId = uuidv4();
+    (req as any).requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+
     const startTime = Date.now();
     const { method, originalUrl, ip, body } = req;
 
-    const originalSend = res.send;
-    let responseBody: any;
-
-    res.send = function (chunk: any) {
-      responseBody = chunk;
-      return originalSend.apply(res, arguments as any);
-    };
+    const skipBody =
+      originalUrl?.startsWith('/api/auth/') ||
+      originalUrl?.startsWith('/api/token');
 
     res.on('finish', () => {
-      const durationMs = Date.now() - startTime;
+      const responseTime = Date.now() - startTime;
       const statusCode = res.statusCode;
 
-      let errorMessage: string | null = null;
-      if (statusCode >= 400) {
-        try {
-          const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
-          errorMessage = parsed?.message || parsed?.error || String(responseBody);
-        } catch {
-          errorMessage = typeof responseBody === 'string' ? responseBody : null;
+      const user = (req as any).user;
+      const userId = user?.id || null;
+
+      const redactedBody =
+        !skipBody && body && Object.keys(body).length > 0
+          ? redactSensitiveData(body)
+          : null;
+
+      const rawError = (req as any).error;
+      let errorData: any = null;
+      if (rawError) {
+        if (rawError instanceof HttpException) {
+          const response = rawError.getResponse();
+          errorData = {
+            message: rawError.message,
+            name: rawError.name,
+            statusCode: rawError.getStatus(),
+            response:
+              typeof response === 'object' ? response : { message: response },
+          };
+        } else if (rawError instanceof Error) {
+          errorData = {
+            message: rawError.message,
+            name: rawError.name,
+            stack: rawError.stack,
+          };
+        } else if (typeof rawError === 'object') {
+          errorData = rawError;
+        } else {
+          errorData = { message: String(rawError) };
         }
       }
 
-      // Non-blocking fire-and-forget save to DB
-      setImmediate(() => {
-        this.logsService
-          .create({
-            method,
-            url: originalUrl,
-            statusCode,
-            ip: (ip || req.socket.remoteAddress || '').replace('::ffff:', ''),
-            requestBody: body ? JSON.stringify(body) : null,
-            responseBody: typeof responseBody === 'string' ? responseBody : JSON.stringify(responseBody || {}),
-            errorMessage,
-            durationMs,
-          })
-          .catch((err) => {
-            console.error('Failed to save HTTP log to database:', err?.message || err);
-          });
-      });
+      this.logsService
+        .create({
+          method,
+          url: originalUrl,
+          ip: ip || req.headers['x-forwarded-for']?.toString(),
+          userId,
+          statusCode,
+          responseTime,
+          requestBody: redactedBody,
+          requestId,
+          error: errorData,
+        })
+        .catch((err) => {
+          console.error('Failed to save log to database', err);
+        });
     });
 
     next();
