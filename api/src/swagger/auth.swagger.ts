@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiBody } from '@nestjs/swagger';
 import { UserLoginDto } from '../modules/auth/dto/user-login.dto';
+import { UserSignupDto } from '../modules/auth/dto/user-signup.dto';
 import { VerifyOtpDto } from '../modules/auth/dto/verify-otp.dto';
 import { EmployeeLoginDto } from '../modules/auth/dto/employee-login.dto';
 
@@ -8,11 +9,31 @@ export function ApiAuthDocs() {
   return ApiTags('Authentication');
 }
 
+export function ApiUserSignupDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'User Sign Up',
+      description:
+        'Registers new user profile (firstName, lastName, mobileNumber, email, preferredName). Deletes old unverified user if mobile exists but is unverified.',
+    }),
+    ApiBody({ type: UserSignupDto }),
+    ApiResponse({
+      status: 201,
+      description: 'User registered successfully with isMobileVerified: false.',
+    }),
+    ApiResponse({
+      status: 409,
+      description: 'Conflict - Mobile number already registered and verified.',
+    }),
+  );
+}
+
 export function ApiSendUserOtpDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Send Mobile OTP',
-      description: 'Generates and sends a 6-digit OTP code to the specified user mobile number.',
+      description:
+        'Generates and sends a 6-digit OTP code to a registered user mobile number.',
     }),
     ApiBody({ type: UserLoginDto }),
     ApiResponse({
@@ -25,7 +46,7 @@ export function ApiSendUserOtpDocs() {
         },
       },
     }),
-    ApiResponse({ status: 400, description: 'Invalid mobile number format' }),
+    ApiResponse({ status: 404, description: 'Mobile number not registered' }),
   );
 }
 

@@ -7,8 +7,23 @@ export class User extends BaseEntity {
   @Column({ unique: true })
   mobileNumber: string;
 
+  @Column()
+  firstName: string;
+
+  @Column()
+  lastName: string;
+
   @Column({ nullable: true })
-  name: string;
+  email?: string;
+
+  @Column({ nullable: true })
+  preferredName?: string;
+
+  @Column({ default: false })
+  isMobileVerified: boolean;
+
+  @Column({ default: false })
+  isEmailVerified: boolean;
 
   @Column({ default: true })
   isActive: boolean;

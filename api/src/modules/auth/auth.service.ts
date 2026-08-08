@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { OtpService } from '../otp/otp.service';
@@ -9,7 +11,9 @@ import { UsersService } from '../users/users.service';
 import { EmployeesService } from '../employees/employees.service';
 import { EmployeeLoginDto } from './dto/employee-login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { UserSignupDto } from './dto/user-signup.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { User } from '../../database/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -20,7 +24,40 @@ export class AuthService {
     private readonly employeesService: EmployeesService,
   ) {}
 
+  async signupUser(userSignupDto: UserSignupDto): Promise<User> {
+    const existingUser = await this.usersService.findByMobileNumber(
+      userSignupDto.mobileNumber,
+    );
+
+    if (existingUser) {
+      if (existingUser.isMobileVerified) {
+        throw new ConflictException(
+          'Mobile number is already registered and verified',
+        );
+      }
+      // Delete old unverified record before recreating
+      await this.usersService.deleteUserEntity(existingUser);
+    }
+
+    return this.usersService.create({
+      firstName: userSignupDto.firstName,
+      lastName: userSignupDto.lastName,
+      mobileNumber: userSignupDto.mobileNumber,
+      email: userSignupDto.email,
+      preferredName: userSignupDto.preferredName,
+      isMobileVerified: false,
+      isEmailVerified: false,
+    });
+  }
+
   async sendUserOtp(mobileNumber: string): Promise<{ message: string }> {
+    const user = await this.usersService.findByMobileNumber(mobileNumber);
+    if (!user) {
+      throw new NotFoundException(
+        'Mobile number not registered. Please sign up first.',
+      );
+    }
+
     await this.otpService.generateOtp(mobileNumber);
     return { message: 'OTP sent successfully' };
   }
@@ -34,7 +71,13 @@ export class AuthService {
 
     let user = await this.usersService.findByMobileNumber(mobileNumber);
     if (!user) {
-      user = await this.usersService.create({ mobileNumber });
+      throw new NotFoundException('User not found. Please sign up first.');
+    }
+
+    if (!user.isMobileVerified) {
+      user = await this.usersService.update(user.id, {
+        isMobileVerified: true,
+      });
     }
 
     const payload = { sub: user.id, type: 'user' };

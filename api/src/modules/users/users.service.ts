@@ -16,4 +16,8 @@ export class UsersService extends DatabaseService<User> {
   async findByMobileNumber(mobileNumber: string): Promise<User | null> {
     return this.findOneBy({ mobileNumber } as any);
   }
+
+  async deleteUserEntity(user: User): Promise<void> {
+    await this.userRepo.remove(user);
+  }
 }

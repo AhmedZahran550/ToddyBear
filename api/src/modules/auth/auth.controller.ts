@@ -1,11 +1,13 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserLoginDto } from './dto/user-login.dto';
+import { UserSignupDto } from './dto/user-signup.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { EmployeeLoginDto } from './dto/employee-login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import {
   ApiAuthDocs,
+  ApiUserSignupDocs,
   ApiSendUserOtpDocs,
   ApiVerifyUserOtpDocs,
   ApiEmployeeLoginDocs,
@@ -15,6 +17,13 @@ import {
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @ApiUserSignupDocs()
+  @Post('user/signup')
+  signupUser(@Body() userSignupDto: UserSignupDto) {
+    return this.authService.signupUser(userSignupDto);
+  }
 
   @Public()
   @ApiSendUserOtpDocs()
