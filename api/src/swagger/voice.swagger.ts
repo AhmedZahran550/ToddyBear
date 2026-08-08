@@ -1,0 +1,140 @@
+import { applyDecorators } from '@nestjs/common';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiHeader,
+  ApiBody,
+  ApiConsumes,
+  ApiProduces,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { PushMessageDto } from '../modules/voice/dto/push-message.dto';
+
+export function ApiVoiceDocs() {
+  return ApiTags('Voice & AI Assistant');
+}
+
+export function ApiVoiceAssistantDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Voice Assistant Audio Pipeline',
+      description: 'Receives raw audio stream from hardware device, performs Speech-to-Text (STT), processes intent/AI response, and returns Text-to-Speech (TTS) audio stream.',
+    }),
+    ApiHeader({
+      name: 'x-device-mac',
+      description: 'Registered Device MAC Address',
+      required: true,
+      example: 'AA:BB:CC:DD:EE:FF',
+    }),
+    ApiConsumes('application/octet-stream'),
+    ApiProduces('application/octet-stream'),
+    ApiResponse({
+      status: 200,
+      description: 'Audio response generated successfully.',
+    }),
+    ApiResponse({ status: 204, description: 'No Speech Detected' }),
+    ApiResponse({ status: 400, description: 'Invalid or missing audio payload' }),
+    ApiResponse({ status: 403, description: 'Missing or unregistered X-Device-Mac header' }),
+  );
+}
+
+export function ApiVoicePushDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'Push Text-to-Speech Message to Device',
+      description: 'Converts a text string to audio and queues it to be fetched by the device. Notifies device via SSE.',
+    }),
+    ApiHeader({
+      name: 'x-device-mac',
+      description: 'Target Device MAC Address',
+      required: true,
+      example: 'AA:BB:CC:DD:EE:FF',
+    }),
+    ApiBody({ type: PushMessageDto }),
+    ApiResponse({
+      status: 200,
+      description: 'Message converted to TTS audio and queued.',
+      schema: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean', example: true },
+          message: { type: 'string', example: 'Audio push queued and SSE notified' },
+        },
+      },
+    }),
+    ApiResponse({ status: 403, description: 'Forbidden / Unregistered MAC' }),
+  );
+}
+
+export function ApiVoicePushPendingDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Fetch Pending Push Audio',
+      description: 'Called by the device when notified via SSE to retrieve queued push audio stream.',
+    }),
+    ApiHeader({
+      name: 'x-device-mac',
+      description: 'Registered Device MAC Address',
+      required: true,
+      example: 'AA:BB:CC:DD:EE:FF',
+    }),
+    ApiProduces('application/octet-stream'),
+    ApiResponse({
+      status: 200,
+      description: 'Queued audio stream returned.',
+    }),
+    ApiResponse({ status: 204, description: 'No pending push audio' }),
+    ApiResponse({ status: 403, description: 'Unregistered MAC' }),
+  );
+}
+
+export function ApiGetSttProviderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'Get Current STT Provider',
+      description: 'Returns the currently active Speech-to-Text provider (groq or google).',
+    }),
+    ApiResponse({
+      status: 200,
+      schema: {
+        type: 'object',
+        properties: {
+          provider: { type: 'string', example: 'groq' },
+        },
+      },
+    }),
+  );
+}
+
+export function ApiSetSttProviderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'Set Active STT Provider',
+      description: 'Switches the active STT provider between "groq" and "google".',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: {
+          provider: { type: 'string', enum: ['groq', 'google'], example: 'google' },
+        },
+        required: ['provider'],
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      schema: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean', example: true },
+          provider: { type: 'string', example: 'google' },
+        },
+      },
+    }),
+    ApiResponse({ status: 400, description: 'Provider must be "groq" or "google"' }),
+  );
+}

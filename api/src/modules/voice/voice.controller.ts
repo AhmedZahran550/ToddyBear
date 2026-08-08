@@ -18,7 +18,16 @@ import { DevicesService } from '../devices/devices.service';
 import { SseService } from '../sse/sse.service';
 import { PushMessageDto } from './dto/push-message.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import {
+  ApiVoiceDocs,
+  ApiVoiceAssistantDocs,
+  ApiVoicePushDocs,
+  ApiVoicePushPendingDocs,
+  ApiGetSttProviderDocs,
+  ApiSetSttProviderDocs,
+} from '../../swagger/voice.swagger';
 
+@ApiVoiceDocs()
 @Controller('voice')
 export class VoiceController {
   private pushQueue = new Map<string, Buffer[]>();
@@ -45,6 +54,7 @@ export class VoiceController {
   }
 
   @Public()
+  @ApiVoiceAssistantDocs()
   @Post('assistant')
   async assistant(
     @Headers('x-device-mac') mac: string,
@@ -76,6 +86,7 @@ export class VoiceController {
     });
   }
 
+  @ApiVoicePushDocs()
   @Post('push')
   async pushMessage(
     @Headers('x-device-mac') mac: string,
@@ -95,6 +106,7 @@ export class VoiceController {
   }
 
   @Public()
+  @ApiVoicePushPendingDocs()
   @Get('push-pending')
   async pushPending(
     @Headers('x-device-mac') mac: string,
@@ -112,11 +124,13 @@ export class VoiceController {
     return res.status(200).send(audio);
   }
 
+  @ApiGetSttProviderDocs()
   @Get('stt-provider')
   getSttProvider() {
     return { provider: this.sttService.getProvider() };
   }
 
+  @ApiSetSttProviderDocs()
   @Post('stt-provider')
   setSttProvider(@Body('provider') provider: 'groq' | 'google') {
     const ok = this.sttService.setProvider(provider);

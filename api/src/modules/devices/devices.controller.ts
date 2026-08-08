@@ -13,11 +13,22 @@ import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import {
+  ApiDevicesDocs,
+  ApiRegisterDeviceDocs,
+  ApiFindAllDevicesDocs,
+  ApiFindOneDeviceDocs,
+  ApiUpdateDeviceDocs,
+  ApiRemoveDeviceDocs,
+  ApiGetDeviceStatusDocs,
+} from '../../swagger/devices.swagger';
 
+@ApiDevicesDocs()
 @Controller('devices')
 export class DevicesController {
   constructor(private readonly devicesService: DevicesService) {}
 
+  @ApiRegisterDeviceDocs()
   @Post('register')
   register(
     @Body() registerDto: RegisterDeviceDto,
@@ -26,6 +37,7 @@ export class DevicesController {
     return this.devicesService.registerDevice(registerDto, userId);
   }
 
+  @ApiFindAllDevicesDocs()
   @Get()
   findAll(
     @Query() paginationQuery: PaginationQueryDto,
@@ -38,21 +50,25 @@ export class DevicesController {
     return this.devicesService.findAll(paginationQuery);
   }
 
+  @ApiFindOneDeviceDocs()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.devicesService.findOne(id);
   }
 
+  @ApiUpdateDeviceDocs()
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateDeviceDto: UpdateDeviceDto) {
     return this.devicesService.update(id, updateDeviceDto);
   }
 
+  @ApiRemoveDeviceDocs()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.devicesService.remove(id);
   }
 
+  @ApiGetDeviceStatusDocs()
   @Get(':id/status')
   async getStatus(@Param('id') id: string) {
     const device = await this.devicesService.findOne(id);
