@@ -42,6 +42,7 @@ export class AuthService {
     return this.usersService.create({
       firstName: userSignupDto.firstName,
       lastName: userSignupDto.lastName,
+      age: userSignupDto.age,
       mobileNumber: userSignupDto.mobileNumber,
       email: userSignupDto.email,
       preferredName: userSignupDto.preferredName,
