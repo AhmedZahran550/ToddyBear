@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 import { typeOrmAsyncConfig } from './database/database.config';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -21,6 +23,7 @@ import { ChatsModule } from './modules/chats/chats.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { SseModule } from './modules/sse/sse.module';
 import { VoiceModule } from './modules/voice/voice.module';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 @Module({
   imports: [
@@ -42,7 +45,9 @@ import { VoiceModule } from './modules/voice/voice.module';
     SseModule,
     VoiceModule,
   ],
+  controllers: [AppController],
   providers: [
+    AppService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
@@ -54,6 +59,10 @@ import { VoiceModule } from './modules/voice/voice.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
     },
   ],
 })
