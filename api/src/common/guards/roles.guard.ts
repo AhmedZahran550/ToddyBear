@@ -21,8 +21,12 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    // Admin has access to all role-protected endpoints
-    if (user.role === EmployeeRole.ADMIN) {
+    // Admin / Super Admin has access to all role-protected endpoints
+    if (
+      user.isSuperAdmin ||
+      user.role === EmployeeRole.ADMIN ||
+      user.role === EmployeeRole.SUPER_ADMIN
+    ) {
       return true;
     }
 

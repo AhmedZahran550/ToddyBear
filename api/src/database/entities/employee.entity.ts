@@ -3,6 +3,7 @@ import * as argon2 from 'argon2';
 import { BaseEntity } from './base.entity';
 
 export enum EmployeeRole {
+  SUPER_ADMIN = 'super_admin',
   ADMIN = 'admin',
   SUPPORT = 'support',
   VIEWER = 'viewer',

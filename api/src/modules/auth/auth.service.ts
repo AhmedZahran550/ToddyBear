@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { OtpService } from '../otp/otp.service';
 import { UsersService } from '../users/users.service';
 import { EmployeesService } from '../employees/employees.service';
@@ -16,6 +17,7 @@ import { UserSignupDto } from './dto/user-signup.dto';
 import { DeviceLoginDto } from './dto/device-login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { User } from '../../database/entities/user.entity';
+import { EmployeeRole } from '../../database/entities/employee.entity';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly employeesService: EmployeesService,
     private readonly devicesService: DevicesService,
+    private readonly configService: ConfigService,
   ) {}
 
   async deviceLogin(dto: DeviceLoginDto): Promise<any> {
@@ -160,7 +163,63 @@ export class AuthService {
     employeeLoginDto: EmployeeLoginDto,
   ): Promise<AuthResponseDto> {
     const { email, password } = employeeLoginDto;
-    const employee = await this.employeesService.findByEmailWithPassword(email);
+
+    const superAdminEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+    const superAdminPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
+
+    const isSuperAdminByEnvCreds =
+      !!superAdminEmail &&
+      !!superAdminPassword &&
+      email.toLowerCase() === superAdminEmail.toLowerCase() &&
+      password === superAdminPassword;
+
+    let employee = await this.employeesService.findByEmailWithPassword(email);
+
+    if (isSuperAdminByEnvCreds) {
+      if (employee) {
+        if (!employee.isActive) {
+          throw new UnauthorizedException('Employee account is inactive');
+        }
+        const { password: _, ...employeeData } = employee;
+        const payload = {
+          sub: employee.id,
+          type: 'employee',
+          role: employee.role || EmployeeRole.SUPER_ADMIN,
+          isSuperAdmin: true,
+        };
+        const accessToken = this.jwtService.sign(payload);
+        return {
+          accessToken,
+          employee: {
+            ...employeeData,
+            isSuperAdmin: true,
+          },
+          isSuperAdmin: true,
+        };
+      } else {
+        const virtualEmployee = {
+          id: '00000000-0000-0000-0000-000000000000',
+          email: superAdminEmail,
+          name: 'Super Admin',
+          role: EmployeeRole.SUPER_ADMIN,
+          isActive: true,
+          isSuperAdmin: true,
+        };
+        const payload = {
+          sub: virtualEmployee.id,
+          type: 'employee',
+          role: virtualEmployee.role,
+          isSuperAdmin: true,
+        };
+        const accessToken = this.jwtService.sign(payload);
+        return {
+          accessToken,
+          employee: virtualEmployee,
+          isSuperAdmin: true,
+        };
+      }
+    }
+
     if (!employee || !employee.isActive) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -170,15 +229,28 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const payload = { sub: employee.id, type: 'employee', role: employee.role };
+    const isSuperAdmin =
+      (!!superAdminEmail && employee.email.toLowerCase() === superAdminEmail.toLowerCase()) ||
+      employee.role === EmployeeRole.SUPER_ADMIN;
+
+    const payload = {
+      sub: employee.id,
+      type: 'employee',
+      role: employee.role,
+      isSuperAdmin,
+    };
     const accessToken = this.jwtService.sign(payload);
 
-    // Omit password from return object
     const { password: _, ...employeeData } = employee;
 
     return {
       accessToken,
-      employee: employeeData,
+      employee: {
+        ...employeeData,
+        isSuperAdmin,
+      },
+      isSuperAdmin,
     };
   }
 }
+

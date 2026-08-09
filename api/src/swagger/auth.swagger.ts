@@ -112,7 +112,7 @@ export function ApiEmployeeLoginDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Employee Login',
-      description: 'Authenticates an employee (Admin/Support) using email and password.',
+      description: 'Authenticates an employee (Admin/Support/SuperAdmin) using email and password.',
     }),
     ApiBody({ type: EmployeeLoginDto }),
     ApiResponse({
@@ -122,13 +122,15 @@ export function ApiEmployeeLoginDocs() {
         type: 'object',
         properties: {
           accessToken: { type: 'string', example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' },
+          isSuperAdmin: { type: 'boolean', example: true },
           employee: {
             type: 'object',
             properties: {
               id: { type: 'string', example: '18fbd92e-e5e9-4e3e-a9a3-b98f2512b2a4' },
-              email: { type: 'string', example: 'admin@toddybear.com' },
-              name: { type: 'string', example: 'John Admin' },
+              email: { type: 'string', example: 'superadmin@toddybear.com' },
+              name: { type: 'string', example: 'Super Admin' },
               role: { type: 'string', example: 'admin' },
+              isSuperAdmin: { type: 'boolean', example: true },
             },
           },
         },
