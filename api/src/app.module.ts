@@ -8,7 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { typeOrmAsyncConfig } from './database/database.config';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
@@ -24,6 +24,7 @@ import { UsageModule } from './modules/usage/usage.module';
 import { SseModule } from './modules/sse/sse.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { DBExceptionFilter } from './common/filters/query-failed-exception.filter';
 
 @Module({
   imports: [
@@ -48,13 +49,18 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
   controllers: [AppController],
   providers: [
     AppService,
+    GlobalExceptionFilter,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
+      useClass: GlobalExceptionFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: DBExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,
