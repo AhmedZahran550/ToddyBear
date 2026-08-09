@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { UsageService } from './usage.service';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -14,8 +8,8 @@ import {
   ApiUsageDocs,
   ApiFindAllUsageDocs,
   ApiGetOverallStatsDocs,
-  ApiFindByDeviceUsageDocs,
-  ApiGetDeviceStatsDocs,
+  ApiFindByUserUsageDocs,
+  ApiGetUserStatsDocs,
 } from '../../swagger/usage.swagger';
 
 @ApiUsageDocs()
@@ -39,18 +33,18 @@ export class UsageController {
     return this.usageService.getOverallStats();
   }
 
-  @ApiFindByDeviceUsageDocs()
-  @Get('device/:deviceId')
-  findByDevice(
-    @Param('deviceId') deviceId: string,
+  @ApiFindByUserUsageDocs()
+  @Get('user/:userId')
+  findByUser(
+    @Param('userId') userId: string,
     @Query() paginationQuery: PaginationQueryDto,
   ) {
-    return this.usageService.findByDevice(deviceId, paginationQuery);
+    return this.usageService.findByUser(userId, paginationQuery);
   }
 
-  @ApiGetDeviceStatsDocs()
-  @Get('device/:deviceId/stats')
-  getDeviceStats(@Param('deviceId') deviceId: string) {
-    return this.usageService.getStatsByDevice(deviceId);
+  @ApiGetUserStatsDocs()
+  @Get('user/:userId/stats')
+  getUserStats(@Param('userId') userId: string) {
+    return this.usageService.getStatsByUser(userId);
   }
 }

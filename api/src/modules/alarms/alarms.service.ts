@@ -14,14 +14,14 @@ export class AlarmsService extends DatabaseService<Alarm> {
     super(alarmRepo);
   }
 
-  async findByDevice(deviceId: string, pagination: PaginationQueryDto) {
-    return this.findAll(pagination, { where: { deviceId } });
+  async findByUser(userId: string, pagination: PaginationQueryDto) {
+    return this.findAll(pagination, { where: { userId } });
   }
 
   async findDueAlarms(currentHM: string): Promise<Alarm[]> {
     return this.alarmRepo.find({
       where: { time: currentHM, enabled: true },
-      relations: { device: true },
+      relations: { user: { devices: true } },
     });
   }
 }

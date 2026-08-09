@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsIn, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateDeviceDto {
@@ -11,37 +11,12 @@ export class UpdateDeviceDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Updated child gender',
-    enum: ['boy', 'girl'],
-    example: 'girl',
-  })
-  @IsOptional()
-  @IsIn(['boy', 'girl'])
-  gender?: string;
-
-  @ApiPropertyOptional({
-    description: 'Updated child age',
-    example: '5 years',
+    description: 'Updated device serial number',
+    example: 'TB-9988776655',
   })
   @IsOptional()
   @IsString()
-  age?: string;
-
-  @ApiPropertyOptional({
-    description: 'Updated WiFi SSID',
-    example: 'New_WiFi_SSID',
-  })
-  @IsOptional()
-  @IsString()
-  ssid?: string;
-
-  @ApiPropertyOptional({
-    description: 'Updated WiFi password',
-    example: 'NewPassword123',
-  })
-  @IsOptional()
-  @IsString()
-  wifiPassword?: string;
+  serialNumber?: string;
 
   @ApiPropertyOptional({
     description: 'Manual online status override',

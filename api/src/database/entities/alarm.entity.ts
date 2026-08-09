@@ -1,6 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { Device } from './device.entity';
+import { User } from './user.entity';
 
 @Entity('alarms')
 export class Alarm extends BaseEntity {
@@ -16,10 +16,10 @@ export class Alarm extends BaseEntity {
   @Column({ type: 'date', nullable: true })
   lastTriggeredDate: string;
 
-  @ManyToOne(() => Device, (device) => device.alarms, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'deviceId' })
-  device: Device;
+  @ManyToOne(() => User, (user) => user.alarms, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
 
   @Column()
-  deviceId: string;
+  userId: string;
 }

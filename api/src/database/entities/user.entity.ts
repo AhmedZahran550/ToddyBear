@@ -1,6 +1,9 @@
 import { Entity, Column, OneToMany } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Device } from './device.entity';
+import { Alarm } from './alarm.entity';
+import { Chat } from './chat.entity';
+import { Usage } from './usage.entity';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -15,6 +18,9 @@ export class User extends BaseEntity {
 
   @Column()
   age: number;
+
+  @Column({ nullable: true })
+  gender?: string;
 
   @Column({ nullable: true })
   email?: string;
@@ -33,4 +39,13 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Device, (device) => device.user)
   devices: Device[];
+
+  @OneToMany(() => Alarm, (alarm) => alarm.user)
+  alarms: Alarm[];
+
+  @OneToMany(() => Chat, (chat) => chat.user)
+  chats: Chat[];
+
+  @OneToMany(() => Usage, (usage) => usage.user)
+  usages: Usage[];
 }

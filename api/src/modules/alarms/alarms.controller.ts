@@ -15,7 +15,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import {
   ApiAlarmsDocs,
   ApiCreateAlarmDocs,
-  ApiFindByDeviceAlarmsDocs,
+  ApiFindByUserAlarmsDocs,
   ApiFindOneAlarmDocs,
   ApiUpdateAlarmDocs,
   ApiRemoveAlarmDocs,
@@ -27,24 +27,24 @@ export class AlarmsController {
   constructor(private readonly alarmsService: AlarmsService) {}
 
   @ApiCreateAlarmDocs()
-  @Post('devices/:deviceId/alarms')
+  @Post('users/:userId/alarms')
   create(
-    @Param('deviceId') deviceId: string,
+    @Param('userId') userId: string,
     @Body() createAlarmDto: CreateAlarmDto,
   ) {
     return this.alarmsService.create({
       ...createAlarmDto,
-      deviceId,
+      userId,
     });
   }
 
-  @ApiFindByDeviceAlarmsDocs()
-  @Get('devices/:deviceId/alarms')
-  findByDevice(
-    @Param('deviceId') deviceId: string,
+  @ApiFindByUserAlarmsDocs()
+  @Get('users/:userId/alarms')
+  findByUser(
+    @Param('userId') userId: string,
     @Query() paginationQuery: PaginationQueryDto,
   ) {
-    return this.alarmsService.findByDevice(deviceId, paginationQuery);
+    return this.alarmsService.findByUser(userId, paginationQuery);
   }
 
   @ApiFindOneAlarmDocs()

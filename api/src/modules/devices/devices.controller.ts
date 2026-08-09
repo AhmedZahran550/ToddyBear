@@ -7,15 +7,21 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { DevicesService } from './devices.service';
 import { RegisterDeviceDto } from './dto/register-device.dto';
 import { UpdateDeviceDto } from './dto/update-device.dto';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { EmployeeRole } from '../../database/entities/employee.entity';
+import { ConnectDeviceDto } from './dto/connect-device.dto';
 import {
   ApiDevicesDocs,
   ApiRegisterDeviceDocs,
+  ApiConnectDeviceDocs,
   ApiFindAllDevicesDocs,
   ApiFindOneDeviceDocs,
   ApiUpdateDeviceDocs,
@@ -30,11 +36,22 @@ export class DevicesController {
 
   @ApiRegisterDeviceDocs()
   @Post('register')
-  register(
-    @Body() registerDto: RegisterDeviceDto,
+  @UseGuards(RolesGuard)
+  @Roles(EmployeeRole.ADMIN, EmployeeRole.SUPPORT)
+  register(@Body() registerDto: RegisterDeviceDto) {
+    return this.devicesService.registerDevice(registerDto);
+  }
+
+  @ApiConnectDeviceDocs()
+  @Post('connect')
+  connectDevice(
+    @Body() connectDto: ConnectDeviceDto,
     @AuthUser('id') userId: string,
   ) {
-    return this.devicesService.registerDevice(registerDto, userId);
+    return this.devicesService.connectBySerialNumber(
+      connectDto.serialNumber,
+      userId,
+    );
   }
 
   @ApiFindAllDevicesDocs()
@@ -58,12 +75,16 @@ export class DevicesController {
 
   @ApiUpdateDeviceDocs()
   @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles(EmployeeRole.ADMIN, EmployeeRole.SUPPORT)
   update(@Param('id') id: string, @Body() updateDeviceDto: UpdateDeviceDto) {
     return this.devicesService.update(id, updateDeviceDto);
   }
 
   @ApiRemoveDeviceDocs()
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(EmployeeRole.ADMIN, EmployeeRole.SUPPORT)
   remove(@Param('id') id: string) {
     return this.devicesService.remove(id);
   }
@@ -85,6 +106,7 @@ export class DevicesController {
       online,
       lastSeen: device.lastSeenAt,
       macAddress: device.macAddress,
+      serialNumber: device.serialNumber,
     };
   }
 }

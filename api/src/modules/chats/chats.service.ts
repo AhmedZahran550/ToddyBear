@@ -14,22 +14,24 @@ export class ChatsService extends DatabaseService<Chat> {
     super(chatRepo);
   }
 
-  async findByDevice(deviceId: string, pagination: PaginationQueryDto) {
+  async findByUser(userId: string, pagination: PaginationQueryDto) {
     return this.findAll(pagination, {
-      where: { deviceId },
+      where: { userId },
       order: { createdAt: 'ASC' },
     });
   }
 
-  async findRecentHistory(deviceId: string, limit = 12): Promise<Chat[]> {
-    return this.chatRepo.find({
-      where: { deviceId },
-      order: { createdAt: 'DESC' },
-      take: limit,
-    }).then((chats) => chats.reverse());
+  async findRecentHistory(userId: string, limit = 12): Promise<Chat[]> {
+    return this.chatRepo
+      .find({
+        where: { userId },
+        order: { createdAt: 'DESC' },
+        take: limit,
+      })
+      .then((chats) => chats.reverse());
   }
 
-  async clearByDevice(deviceId: string): Promise<void> {
-    await this.chatRepo.delete({ deviceId });
+  async clearByUser(userId: string): Promise<void> {
+    await this.chatRepo.delete({ userId });
   }
 }

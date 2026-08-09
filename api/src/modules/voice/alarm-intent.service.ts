@@ -4,7 +4,6 @@ import { AlarmsService } from '../alarms/alarms.service';
 @Injectable()
 export class AlarmIntentService {
   private readonly logger = new Logger(AlarmIntentService.name);
-  private pendingAlarms = new Map<string, any>();
 
   constructor(private readonly alarmsService: AlarmsService) {}
 
@@ -19,7 +18,15 @@ export class AlarmIntentService {
 
   containsAlarmIntent(text: string): boolean {
     const t = this.normalizeText(text);
-    const keywords = ['منبه', 'المنبه', 'نبهني', 'فكرني', 'ذكرني', 'اعمل منبه', 'ظبط منبه'];
+    const keywords = [
+      'منبه',
+      'المنبه',
+      'نبهني',
+      'فكرني',
+      'ذكرني',
+      'اعمل منبه',
+      'ظبط منبه',
+    ];
     return keywords.some((k) => t.includes(k));
   }
 
@@ -52,7 +59,10 @@ export class AlarmIntentService {
     return null;
   }
 
-  async handleAlarmFlow(deviceId: string, userText: string): Promise<string | null> {
+  async handleAlarmFlow(
+    userId: string,
+    userText: string,
+  ): Promise<string | null> {
     if (!this.containsAlarmIntent(userText)) {
       return null;
     }
@@ -61,7 +71,7 @@ export class AlarmIntentService {
     if (time) {
       const timeStr = `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
       await this.alarmsService.create({
-        deviceId,
+        userId,
         time: timeStr,
         enabled: true,
       });

@@ -1,6 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { Device } from './device.entity';
 import { User } from './user.entity';
 
 @Entity('usage')
@@ -17,14 +16,10 @@ export class Usage extends BaseEntity {
   @Column({ nullable: true })
   model: string;
 
-  @ManyToOne(() => Device, (device) => device.usages, { onDelete: 'CASCADE', nullable: true })
-  @JoinColumn({ name: 'deviceId' })
-  device: Device;
-
-  @Column({ nullable: true })
-  deviceId: string;
-
-  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => User, (user) => user.usages, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   @JoinColumn({ name: 'userId' })
   user: User;
 

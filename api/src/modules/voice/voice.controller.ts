@@ -45,7 +45,7 @@ export class VoiceController {
     if (!mac) {
       throw new ForbiddenException('Missing X-Device-Mac header');
     }
-    const device = await this.devicesService.findByMacAddress(mac);
+    const device = await this.devicesService.findByMacAddressWithUser(mac);
     if (!device) {
       throw new ForbiddenException('Unregistered device MAC');
     }
@@ -76,8 +76,13 @@ export class VoiceController {
         return res.status(204).send();
       }
 
-      const alarmReply = await this.alarmIntentService.handleAlarmFlow(device.id, userText);
-      const replyText = alarmReply || (await this.aiService.askAi(device.id, userText));
+      const userId = device.userId;
+      const alarmReply = userId
+        ? await this.alarmIntentService.handleAlarmFlow(userId, userText)
+        : null;
+      const replyText =
+        alarmReply ||
+        (await this.aiService.askAi(device.id, userText, device.user));
 
       const audioOutput = await this.ttsService.textToSpeech(replyText);
 

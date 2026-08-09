@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, Matches, IsIn, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, Matches, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -12,46 +12,22 @@ export class RegisterDeviceDto {
   @Matches(/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/, {
     message: 'macAddress must be in format XX:XX:XX:XX:XX:XX',
   })
-  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase().trim() : value)
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase().trim() : value))
   macAddress: string;
 
   @ApiProperty({
-    description: 'Name assigned to the device / child',
+    description: 'Unique device serial number',
+    example: 'TB-9988776655',
+  })
+  @IsString()
+  @IsNotEmpty()
+  serialNumber: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional name assigned to the device',
     example: 'Teddy Bear',
   })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty({
-    description: 'Target child gender',
-    enum: ['boy', 'girl'],
-    example: 'boy',
-  })
-  @IsIn(['boy', 'girl'])
-  gender: string;
-
-  @ApiProperty({
-    description: 'Child age',
-    example: '4 years',
-  })
-  @IsString()
-  @IsNotEmpty()
-  age: string;
-
-  @ApiPropertyOptional({
-    description: 'WiFi Network SSID for the device',
-    example: 'Home_WiFi',
-  })
   @IsOptional()
   @IsString()
-  ssid?: string;
-
-  @ApiPropertyOptional({
-    description: 'WiFi Password',
-    example: 'SecretWiFiPassword123',
-  })
-  @IsOptional()
-  @IsString()
-  wifiPassword?: string;
+  name?: string;
 }

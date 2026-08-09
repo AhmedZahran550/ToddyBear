@@ -19,28 +19,27 @@ export class UsageService extends DatabaseService<Usage> {
     completionTokens: number;
     totalTokens: number;
     model: string;
-    deviceId?: string;
     userId?: string;
   }): Promise<Usage> {
     return this.create(data as any);
   }
 
-  async findByDevice(deviceId: string, pagination: PaginationQueryDto) {
-    return this.findAll(pagination, { where: { deviceId } });
+  async findByUser(userId: string, pagination: PaginationQueryDto) {
+    return this.findAll(pagination, { where: { userId } });
   }
 
-  async getStatsByDevice(deviceId: string) {
+  async getStatsByUser(userId: string) {
     const raw = await this.usageRepo
       .createQueryBuilder('usage')
       .select('SUM(usage.promptTokens)', 'totalPromptTokens')
       .addSelect('SUM(usage.completionTokens)', 'totalCompletionTokens')
       .addSelect('SUM(usage.totalTokens)', 'totalTokens')
       .addSelect('COUNT(*)', 'totalInteractions')
-      .where('usage.deviceId = :deviceId', { deviceId })
+      .where('usage.userId = :userId', { userId })
       .getRawOne();
 
     return {
-      deviceId,
+      userId,
       totalPromptTokens: parseInt(raw.totalPromptTokens || '0', 10),
       totalCompletionTokens: parseInt(raw.totalCompletionTokens || '0', 10),
       totalTokens: parseInt(raw.totalTokens || '0', 10),

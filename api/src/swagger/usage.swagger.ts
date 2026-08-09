@@ -10,18 +10,25 @@ import {
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 
 export function ApiUsageDocs() {
-  return applyDecorators(ApiTags('Usage Analytics'), ApiBearerAuth('bearer-auth'));
+  return applyDecorators(
+    ApiTags('Usage Analytics'),
+    ApiBearerAuth('bearer-auth'),
+  );
 }
 
 export function ApiFindAllUsageDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Find All Usage Logs',
-      description: 'Retrieves overall usage activity logs across all devices (Admin/Support only).',
+      description:
+        'Retrieves overall usage activity logs across all users (Admin/Support only).',
     }),
     ApiQuery({ type: PaginationQueryDto }),
     ApiResponse({ status: 200, description: 'Paginated usage logs.' }),
-    ApiResponse({ status: 403, description: 'Forbidden (Requires Admin or Support role)' }),
+    ApiResponse({
+      status: 403,
+      description: 'Forbidden (Requires Admin or Support role)',
+    }),
   );
 }
 
@@ -29,35 +36,48 @@ export function ApiGetOverallStatsDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Get Overall Usage Statistics',
-      description: 'Calculates aggregated usage statistics across the entire system.',
+      description:
+        'Calculates aggregated usage statistics across the entire system.',
     }),
     ApiResponse({
       status: 200,
       description: 'Overall system usage statistics.',
     }),
-    ApiResponse({ status: 403, description: 'Forbidden (Requires Admin or Support role)' }),
+    ApiResponse({
+      status: 403,
+      description: 'Forbidden (Requires Admin or Support role)',
+    }),
   );
 }
 
-export function ApiFindByDeviceUsageDocs() {
+export function ApiFindByUserUsageDocs() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Find Usage Logs by Device',
-      description: 'Retrieves usage logs for a specific device.',
+      summary: 'Find Usage Logs by User',
+      description: 'Retrieves usage logs for a specific user.',
     }),
-    ApiParam({ name: 'deviceId', description: 'Device UUID', example: 'c56a4180-65aa-42ec-a945-5fd21dec0538' }),
+    ApiParam({
+      name: 'userId',
+      description: 'User UUID',
+      example: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+    }),
     ApiQuery({ type: PaginationQueryDto }),
-    ApiResponse({ status: 200, description: 'Device usage logs.' }),
+    ApiResponse({ status: 200, description: 'User usage logs.' }),
   );
 }
 
-export function ApiGetDeviceStatsDocs() {
+export function ApiGetUserStatsDocs() {
   return applyDecorators(
     ApiOperation({
-      summary: 'Get Device Usage Statistics',
-      description: 'Calculates total interaction count, active duration, and session metrics for a device.',
+      summary: 'Get User Usage Statistics',
+      description:
+        'Calculates total interaction count, active duration, and session metrics for a user.',
     }),
-    ApiParam({ name: 'deviceId', description: 'Device UUID', example: 'c56a4180-65aa-42ec-a945-5fd21dec0538' }),
-    ApiResponse({ status: 200, description: 'Device usage statistics.' }),
+    ApiParam({
+      name: 'userId',
+      description: 'User UUID',
+      example: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+    }),
+    ApiResponse({ status: 200, description: 'User usage statistics.' }),
   );
 }

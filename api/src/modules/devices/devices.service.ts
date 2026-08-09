@@ -1,4 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DatabaseService } from '../../database/database.service';
@@ -15,34 +19,61 @@ export class DevicesService extends DatabaseService<Device> {
     super(deviceRepo);
   }
 
-  async registerDevice(
-    dto: RegisterDeviceDto,
-    userId?: string,
-  ): Promise<Device> {
+  async registerDevice(dto: RegisterDeviceDto): Promise<Device> {
     const macAddress = dto.macAddress.toUpperCase().trim();
-    let device = await this.findByMacAddress(macAddress);
+    const serialNumber = dto.serialNumber.trim();
 
-    if (device) {
-      // Update existing device registration
-      Object.assign(device, {
-        ...dto,
-        macAddress,
-        userId: userId || device.userId,
-      });
-      return this.deviceRepo.save(device);
+    const existingMac = await this.findByMacAddress(macAddress);
+    if (existingMac) {
+      throw new ConflictException(`Device with MAC ${macAddress} already exists`);
+    }
+
+    const existingSerial = await this.findBySerialNumber(serialNumber);
+    if (existingSerial) {
+      throw new ConflictException(
+        `Device with serial number ${serialNumber} already exists`,
+      );
     }
 
     return this.create({
-      ...dto,
       macAddress,
-      userId,
-      createdBy: userId,
+      serialNumber,
+      name: dto.name,
     });
+  }
+
+  async connectBySerialNumber(
+    serialNumber: string,
+    userId: string,
+  ): Promise<Device> {
+    const cleanSerial = serialNumber.trim();
+    const device = await this.findBySerialNumber(cleanSerial);
+
+    if (!device) {
+      throw new NotFoundException(
+        `No device found with serial number: ${cleanSerial}`,
+      );
+    }
+
+    if (device.userId && device.userId !== userId) {
+      throw new ConflictException(
+        `Device ${cleanSerial} is already registered to another user account.`,
+      );
+    }
+
+    device.userId = userId;
+    return this.deviceRepo.save(device);
   }
 
   async findByMacAddress(macAddress: string): Promise<Device | null> {
     return this.findOne({
       where: { macAddress: macAddress.toUpperCase().trim() },
+    });
+  }
+
+  async findBySerialNumber(serialNumber: string): Promise<Device | null> {
+    return this.findOne({
+      where: { serialNumber: serialNumber.trim() },
     });
   }
 
