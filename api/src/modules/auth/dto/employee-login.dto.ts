@@ -1,4 +1,10 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class EmployeeLoginDto {
@@ -17,4 +23,12 @@ export class EmployeeLoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiProperty({
+    description: 'Is super admin',
+    example: 'true',
+  })
+  @IsBoolean()
+  @IsOptional()
+  isSuperAdmin: boolean;
 }

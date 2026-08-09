@@ -53,7 +53,7 @@ export class DevicesController {
   @ApiFindOneDeviceDocs()
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.devicesService.findOne(id);
+    return this.devicesService.findOneById(id);
   }
 
   @ApiUpdateDeviceDocs()
@@ -71,12 +71,13 @@ export class DevicesController {
   @ApiGetDeviceStatusDocs()
   @Get(':id/status')
   async getStatus(@Param('id') id: string) {
-    const device = await this.devicesService.findOne(id);
+    const device = await this.devicesService.findOneById(id);
     const ONLINE_THRESHOLD_SECONDS = 20;
     let online = device.isOnline;
 
     if (device.lastSeenAt) {
-      const secondsAgo = (Date.now() - new Date(device.lastSeenAt).getTime()) / 1000;
+      const secondsAgo =
+        (Date.now() - new Date(device.lastSeenAt).getTime()) / 1000;
       online = online && secondsAgo <= ONLINE_THRESHOLD_SECONDS;
     }
 

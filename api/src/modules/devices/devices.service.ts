@@ -15,13 +15,20 @@ export class DevicesService extends DatabaseService<Device> {
     super(deviceRepo);
   }
 
-  async registerDevice(dto: RegisterDeviceDto, userId?: string): Promise<Device> {
+  async registerDevice(
+    dto: RegisterDeviceDto,
+    userId?: string,
+  ): Promise<Device> {
     const macAddress = dto.macAddress.toUpperCase().trim();
     let device = await this.findByMacAddress(macAddress);
 
     if (device) {
       // Update existing device registration
-      Object.assign(device, { ...dto, macAddress, userId: userId || device.userId });
+      Object.assign(device, {
+        ...dto,
+        macAddress,
+        userId: userId || device.userId,
+      });
       return this.deviceRepo.save(device);
     }
 
@@ -34,7 +41,9 @@ export class DevicesService extends DatabaseService<Device> {
   }
 
   async findByMacAddress(macAddress: string): Promise<Device | null> {
-    return this.findOneBy({ macAddress: macAddress.toUpperCase().trim() } as any);
+    return this.findOne({
+      where: { macAddress: macAddress.toUpperCase().trim() },
+    });
   }
 
   async findByMacAddressWithUser(macAddress: string): Promise<Device | null> {

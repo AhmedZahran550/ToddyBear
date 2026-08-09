@@ -19,10 +19,28 @@ export class AiService {
 
   private getCurrentDatetimeArabic(): string {
     const now = new Date();
-    const weekdays = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const weekdays = [
+      'الأحد',
+      'الإثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+    ];
     const months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
     ];
 
     const weekday = weekdays[now.getDay()];
@@ -35,13 +53,20 @@ export class AiService {
 
   private async getSystemPrompt(deviceId: string): Promise<string> {
     const datetimeText = this.getCurrentDatetimeArabic();
-    const device = await this.devicesService.findOne(deviceId).catch(() => null);
+    const device = await this.devicesService
+      .findOne({ where: { id: deviceId } })
+      .catch(() => null);
 
     if (!device || !device.name) {
       return `أنت مساعد صوتي ذكي، ردودك لازم تكون مختصرة وواضحة ومناسبة لتتحول لصوت (من غير رموز أو تنسيق ماركداون)، جاوب باللغة اللي المستخدم بيتكلم بيها. ${datetimeText}`;
     }
 
-    const genderDesc = device.gender === 'boy' ? 'ولد' : device.gender === 'girl' ? 'بنت' : 'طفل';
+    const genderDesc =
+      device.gender === 'boy'
+        ? 'ولد'
+        : device.gender === 'girl'
+          ? 'بنت'
+          : 'طفل';
 
     return `أنت مساعد صوتي ذكي وصديق مقرب لطفل اسمه '${device.name}'، عمره ${device.age} سنين، وهو ${genderDesc}. ردودك لازم تكون دافية، مشجعة، ومناسبة تمامًا لعمر ${device.age} سنين. تكلم معاه باسمه '${device.name}' بشكل طبيعي وودود. خلي ردودك مختصرة وواضحة عشان تتحول لصوت بسهولة. ما تستخدمش رموز أو تنسيق ماركداون. جاوب باللغة اللي بيتكلم بيها. ${datetimeText}`;
   }
@@ -116,7 +141,9 @@ export class AiService {
       this.logger.log(`🤖 AI -> ${reply}`);
       return reply;
     } catch (error) {
-      this.logger.error(`❌ Groq Chat Error: ${error?.response?.data?.error?.message || error?.message}`);
+      this.logger.error(
+        `❌ Groq Chat Error: ${error?.response?.data?.error?.message || error?.message}`,
+      );
       return 'معذرة، لم أستطع إجابة سؤالك الآن.';
     }
   }

@@ -13,15 +13,7 @@ export class EmployeesService extends DatabaseService<Employee> {
     super(employeeRepo);
   }
 
-  async findByEmailWithPassword(email: string): Promise<Employee | null> {
-    return this.employeeRepo
-      .createQueryBuilder('employee')
-      .addSelect('employee.password')
-      .where('employee.email = :email', { email })
-      .getOne();
-  }
-
   async findByEmail(email: string): Promise<Employee | null> {
-    return this.findOneBy({ email } as any);
+    return this.findOne({ where: { email } });
   }
 }

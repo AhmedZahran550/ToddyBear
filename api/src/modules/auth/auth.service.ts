@@ -162,76 +162,20 @@ export class AuthService {
   async employeeLogin(
     employeeLoginDto: EmployeeLoginDto,
   ): Promise<AuthResponseDto> {
-    const { email, password } = employeeLoginDto;
+    const { email, password, isSuperAdmin } = employeeLoginDto;
 
-    const superAdminEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
-    const superAdminPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
-
-    const isSuperAdminByEnvCreds =
-      !!superAdminEmail &&
-      !!superAdminPassword &&
-      email.toLowerCase() === superAdminEmail.toLowerCase() &&
-      password === superAdminPassword;
-
-    let employee = await this.employeesService.findByEmailWithPassword(email);
-
-    if (isSuperAdminByEnvCreds) {
-      if (employee) {
-        if (!employee.isActive) {
-          throw new UnauthorizedException('Employee account is inactive');
-        }
-        const { password: _, ...employeeData } = employee;
-        const payload = {
-          sub: employee.id,
-          type: 'employee',
-          role: employee.role || EmployeeRole.SUPER_ADMIN,
-          isSuperAdmin: true,
-        };
-        const accessToken = this.jwtService.sign(payload);
-        return {
-          accessToken,
-          employee: {
-            ...employeeData,
-            isSuperAdmin: true,
-          },
-          isSuperAdmin: true,
-        };
-      } else {
-        const virtualEmployee = {
-          id: '00000000-0000-0000-0000-000000000000',
-          email: superAdminEmail,
-          name: 'Super Admin',
-          role: EmployeeRole.SUPER_ADMIN,
-          isActive: true,
-          isSuperAdmin: true,
-        };
-        const payload = {
-          sub: virtualEmployee.id,
-          type: 'employee',
-          role: virtualEmployee.role,
-          isSuperAdmin: true,
-        };
-        const accessToken = this.jwtService.sign(payload);
-        return {
-          accessToken,
-          employee: virtualEmployee,
-          isSuperAdmin: true,
-        };
-      }
+    if (isSuperAdmin) {
+      return this.loginSuperAdmin(email, password);
     }
 
-    if (!employee || !employee.isActive) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
-
+    let employee = await this.employeesService.findOneOrFail({
+      where: { email, isActive: true },
+      select: { password: true },
+    });
     const isMatch = await employee.validatePassword(password);
     if (!isMatch) {
       throw new UnauthorizedException('Invalid email or password');
     }
-
-    const isSuperAdmin =
-      (!!superAdminEmail && employee.email.toLowerCase() === superAdminEmail.toLowerCase()) ||
-      employee.role === EmployeeRole.SUPER_ADMIN;
 
     const payload = {
       sub: employee.id,
@@ -245,12 +189,35 @@ export class AuthService {
 
     return {
       accessToken,
+      employee: employeeData,
+    };
+  }
+
+  private async loginSuperAdmin(email: string, password: string) {
+    const superEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+    const superPassword = this.configService.get<string>(
+      'SUPER_ADMIN_PASSWORD',
+    );
+
+    if (email !== superEmail || password !== superPassword) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    const payload = {
+      sub: '00000000-0000-0000-0000-000000000000',
+      type: 'employee',
+      role: EmployeeRole.SUPER_ADMIN,
+      isSuperAdmin: true,
+    };
+    const accessToken = this.jwtService.sign(payload);
+
+    return {
+      accessToken,
       employee: {
-        ...employeeData,
-        isSuperAdmin,
+        id: '00000000-0000-0000-0000-000000000000',
+        email,
+        role: EmployeeRole.SUPER_ADMIN,
+        isSuperAdmin: true,
       },
-      isSuperAdmin,
     };
   }
 }
-

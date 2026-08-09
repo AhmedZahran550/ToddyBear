@@ -38,7 +38,7 @@ export abstract class DatabaseService<T extends Record<string, any>> {
     };
   }
 
-  async findOne(id: string, options?: FindOneOptions<T>): Promise<T> {
+  async findOneById(id: string, options?: FindOneOptions<T>): Promise<T> {
     const entity = await this.repository.findOne({
       where: { id } as any,
       ...options,
@@ -49,18 +49,22 @@ export abstract class DatabaseService<T extends Record<string, any>> {
     return entity;
   }
 
-  async findOneBy(where: Partial<T>): Promise<T | null> {
-    return this.repository.findOne({ where: where as any });
+  async findOne(options: FindOneOptions<T>): Promise<T | null> {
+    return this.repository.findOne(options);
+  }
+
+  async findOneOrFail(options: FindOneOptions<T>): Promise<T> {
+    return this.repository.findOneOrFail(options);
   }
 
   async update(id: string, data: DeepPartial<T>): Promise<T> {
-    const entity = (await this.findOne(id)) as any;
+    const entity = (await this.findOneById(id)) as any;
     Object.assign(entity, data);
     return this.repository.save(entity);
   }
 
   async remove(id: string): Promise<void> {
-    const entity = await this.findOne(id);
+    const entity = await this.findOneById(id);
     await this.repository.remove(entity);
   }
 

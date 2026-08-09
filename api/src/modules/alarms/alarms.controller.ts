@@ -50,7 +50,7 @@ export class AlarmsController {
   @ApiFindOneAlarmDocs()
   @Get('alarms/:id')
   findOne(@Param('id') id: string) {
-    return this.alarmsService.findOne(id);
+    return this.alarmsService.findOneById(id);
   }
 
   @ApiUpdateAlarmDocs()

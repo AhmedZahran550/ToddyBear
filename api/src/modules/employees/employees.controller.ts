@@ -47,7 +47,7 @@ export class EmployeesController {
   @ApiFindOneEmployeeDocs()
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.employeesService.findOne(id);
+    return this.employeesService.findOneById(id);
   }
 
   @ApiUpdateEmployeeDocs()

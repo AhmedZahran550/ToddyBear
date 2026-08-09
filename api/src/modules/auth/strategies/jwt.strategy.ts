@@ -24,13 +24,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET', 'super-secret-jwt-key'),
+      secretOrKey: configService.get<string>(
+        'JWT_SECRET',
+        'super-secret-jwt-key',
+      ),
     });
   }
 
   async validate(payload: JwtPayload) {
     if (payload.type === 'user') {
-      const user = await this.usersService.findOne(payload.sub);
+      const user = await this.usersService.findOneById(payload.sub);
       if (!user || !user.isActive) {
         throw new UnauthorizedException('User account inactive or not found');
       }
@@ -40,7 +43,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         payload.isSuperAdmin &&
         payload.sub === '00000000-0000-0000-0000-000000000000'
       ) {
-        const superAdminEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+        const superAdminEmail =
+          this.configService.get<string>('SUPER_ADMIN_EMAIL');
         return {
           id: payload.sub,
           email: superAdminEmail || 'superadmin@toddybear.com',
@@ -52,14 +56,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         };
       }
 
-      const employee = await this.employeesService.findOne(payload.sub);
+      const employee = await this.employeesService.findOneById(payload.sub);
       if (!employee || !employee.isActive) {
-        throw new UnauthorizedException('Employee account inactive or not found');
+        throw new UnauthorizedException(
+          'Employee account inactive or not found',
+        );
       }
-      const superAdminEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+      const superAdminEmail =
+        this.configService.get<string>('SUPER_ADMIN_EMAIL');
       const isSuperAdmin =
         payload.isSuperAdmin ||
-        (!!superAdminEmail && employee.email.toLowerCase() === superAdminEmail.toLowerCase()) ||
+        (!!superAdminEmail &&
+          employee.email.toLowerCase() === superAdminEmail.toLowerCase()) ||
         employee.role === EmployeeRole.SUPER_ADMIN;
 
       return {
