@@ -87,7 +87,10 @@ export class AiService {
       return 'معذرة، نواجه مشكلة في الخدمة حالياً.';
     }
 
-    const userId = user?.id || user?.userId;
+    const userId =
+      (user as any)?.type === 'device'
+        ? user?.userId
+        : user?.userId || user?.id;
 
     // Save user chat record
     await this.chatsService.create({

@@ -33,7 +33,7 @@ export class TtsService {
           transcript: text,
           voice: { mode: 'id', id: voiceId },
           output_format: {
-            container: 'raw',
+            container: 'wav',
             encoding: 'pcm_s16le',
             sample_rate: 16000,
           },

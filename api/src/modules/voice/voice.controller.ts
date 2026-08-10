@@ -90,14 +90,20 @@ export class VoiceController {
       ? await this.alarmIntentService.handleAlarmFlow(userId, userText)
       : null;
 
+    const userPayload = {
+      ...device,
+      id: device.userId,
+    };
+
     const replyText =
       alarmReply ||
-      (await this.aiService.askAi(device.id, userText, device));
+      (await this.aiService.askAi(device.id, userText, userPayload));
 
     const audioOutput = await this.ttsService.textToSpeech(replyText);
 
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('X-Audio-Format', 'pcm_s16le');
+    res.setHeader('Content-Type', 'audio/wav');
+    res.setHeader('Content-Disposition', 'inline; filename="response.wav"');
+    res.setHeader('X-Audio-Format', 'wav');
     res.setHeader('X-Sample-Rate', '16000');
     return res.status(200).send(audioOutput);
   }
