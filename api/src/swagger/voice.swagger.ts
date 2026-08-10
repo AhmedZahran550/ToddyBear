@@ -17,16 +17,11 @@ export function ApiVoiceDocs() {
 
 export function ApiVoiceAssistantDocs() {
   return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
     ApiOperation({
-      summary: 'Voice Assistant Audio Pipeline',
+      summary: 'Voice Assistant Audio Pipeline (Device Auth Required)',
       description:
-        'Receives raw audio stream (WAV/PCM) from hardware device, performs Speech-to-Text (STT via Groq Whisper), processes intent / Groq LLaMA AI response with child-friendly prompt and chat history, and returns Text-to-Speech (TTS via Cartesia PCM 16kHz) audio stream.',
-    }),
-    ApiHeader({
-      name: 'x-device-mac',
-      description: 'Registered Device MAC Address',
-      required: true,
-      example: 'AA:BB:CC:DD:EE:FF',
+        'Receives raw audio stream (WAV/PCM) from an authenticated hardware device. Requires Authorization Bearer token obtained from POST /api/auth/device/login. Performs Speech-to-Text (STT via Groq Whisper), processes intent / Groq LLaMA AI response with child-friendly prompt and chat history, and returns Text-to-Speech (TTS via Cartesia PCM 16kHz) audio stream.',
     }),
     ApiConsumes('application/octet-stream'),
     ApiProduces('application/octet-stream'),
@@ -37,7 +32,7 @@ export function ApiVoiceAssistantDocs() {
     }),
     ApiResponse({ status: 204, description: 'No Speech Detected / Silence' }),
     ApiResponse({ status: 400, description: 'Audio payload too short or missing' }),
-    ApiResponse({ status: 403, description: 'Missing or unregistered X-Device-Mac header' }),
+    ApiResponse({ status: 401, description: 'Unauthorized / Missing or invalid device JWT token' }),
     ApiResponse({ status: 500, description: 'STT, AI, or TTS provider processing failure' }),
   );
 }
@@ -73,15 +68,11 @@ export function ApiVoicePushDocs() {
 
 export function ApiVoicePushPendingDocs() {
   return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
     ApiOperation({
-      summary: 'Fetch Pending Push Audio',
-      description: 'Called by the device when notified via SSE to retrieve queued push audio stream.',
-    }),
-    ApiHeader({
-      name: 'x-device-mac',
-      description: 'Registered Device MAC Address',
-      required: true,
-      example: 'AA:BB:CC:DD:EE:FF',
+      summary: 'Fetch Pending Push Audio (Device Auth Required)',
+      description:
+        'Called by an authenticated device (via Authorization Bearer token) when notified via SSE to retrieve queued push audio stream.',
     }),
     ApiProduces('application/octet-stream'),
     ApiResponse({
@@ -89,7 +80,7 @@ export function ApiVoicePushPendingDocs() {
       description: 'Queued audio stream returned.',
     }),
     ApiResponse({ status: 204, description: 'No pending push audio' }),
-    ApiResponse({ status: 403, description: 'Unregistered MAC' }),
+    ApiResponse({ status: 401, description: 'Unauthorized / Missing or invalid device JWT token' }),
   );
 }
 

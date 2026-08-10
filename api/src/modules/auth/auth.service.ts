@@ -69,6 +69,8 @@ export class AuthService {
       macAddress: device.macAddress,
       userId: device.user.id,
       userName: userName,
+      age: device.user.age,
+      gender: device.user.gender,
     };
 
     const accessToken = this.jwtService.sign(payload);

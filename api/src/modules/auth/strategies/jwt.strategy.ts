@@ -9,9 +9,14 @@ import { EmployeeRole } from '../../../database/entities/employee.entity';
 
 export interface JwtPayload {
   sub: string;
-  type: 'user' | 'employee';
+  type: 'user' | 'employee' | 'device';
   role?: string;
   isSuperAdmin?: boolean;
+  macAddress?: string;
+  userId?: string;
+  userName?: string;
+  age?: number;
+  gender?: string;
 }
 
 @Injectable()
@@ -75,6 +80,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         type: 'employee',
         role: employee.role,
         isSuperAdmin,
+      };
+    } else if (payload.type === 'device') {
+      return {
+        id: payload.sub,
+        macAddress: payload.macAddress,
+        userId: payload.userId,
+        userName: payload.userName,
+        age: payload.age,
+        gender: payload.gender,
+        type: 'device',
       };
     }
 

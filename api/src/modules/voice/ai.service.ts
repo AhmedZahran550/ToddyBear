@@ -52,14 +52,21 @@ export class AiService {
     return `معلومة مهمة عن الوقت الحالي: النهارده يوم ${weekday} الموافق ${now.getDate()} ${month} ${now.getFullYear()}، والساعة دلوقتي ${hours}:${minutes}. استخدم المعلومة دي لو الطفل سأل عن التاريخ أو اليوم أو الوقت، وماتقولش إنك مش عارف.`;
   }
 
-  private getSystemPromptForUser(user?: User | null): string {
+  private getSystemPromptForUser(
+    user?: { name?: string; userName?: string; firstName?: string; preferredName?: string; age?: number | string; gender?: string } | null,
+  ): string {
     const datetimeText = this.getCurrentDatetimeArabic();
 
     if (!user) {
       return `أنت مساعد صوتي ذكي، ردودك لازم تكون مختصرة وواضحة ومناسبة لتتحول لصوت (من غير رموز أو تنسيق ماركداون)، جاوب باللغة اللي المستخدم بيتكلم بيها. ${datetimeText}`;
     }
 
-    const name = user.preferredName || user.firstName || 'طفل';
+    const name =
+      user.userName ||
+      user.preferredName ||
+      user.firstName ||
+      (user as any).name ||
+      'طفل';
     const age = user.age ? `${user.age} سنين` : '';
     const genderDesc =
       user.gender === 'boy' ? 'ولد' : user.gender === 'girl' ? 'بنت' : 'طفل';
@@ -70,7 +77,7 @@ export class AiService {
   async askAi(
     deviceId: string,
     userText: string,
-    user?: User | null,
+    user?: { id?: string; userId?: string; name?: string; userName?: string; firstName?: string; preferredName?: string; age?: number | string; gender?: string } | null,
   ): Promise<string> {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     const model = 'llama-3.3-70b-versatile';
@@ -80,7 +87,7 @@ export class AiService {
       return 'معذرة، نواجه مشكلة في الخدمة حالياً.';
     }
 
-    const userId = user?.id;
+    const userId = user?.id || user?.userId;
 
     // Save user chat record
     await this.chatsService.create({

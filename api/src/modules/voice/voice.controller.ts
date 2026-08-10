@@ -6,6 +6,7 @@ import {
   Headers,
   Req,
   Res,
+  UseGuards,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
@@ -18,6 +19,8 @@ import { DevicesService } from '../devices/devices.service';
 import { SseService } from '../sse/sse.service';
 import { PushMessageDto } from './dto/push-message.dto';
 import { Public } from '../../common/decorators/public.decorator';
+import { AuthUser } from '../../common/decorators/auth-user.decorator';
+import { DeviceGuard } from '../../common/guards/device.guard';
 import {
   ApiVoiceDocs,
   ApiVoiceAssistantDocs,
@@ -53,16 +56,14 @@ export class VoiceController {
     return device;
   }
 
-  @Public()
+  @UseGuards(DeviceGuard)
   @ApiVoiceAssistantDocs()
   @Post('assistant')
   async assistant(
-    @Headers('x-device-mac') mac: string,
+    @AuthUser() device: any,
     @Req() req: Request & { rawBody?: Buffer },
     @Res() res: Response,
   ) {
-    const device = await this.verifyDeviceMac(mac);
-
     let audioBuffer: Buffer;
     if (req.rawBody && req.rawBody.length > 0) {
       audioBuffer = req.rawBody;
@@ -91,7 +92,7 @@ export class VoiceController {
 
     const replyText =
       alarmReply ||
-      (await this.aiService.askAi(device.id, userText, device.user));
+      (await this.aiService.askAi(device.id, userText, device));
 
     const audioOutput = await this.ttsService.textToSpeech(replyText);
 
@@ -120,14 +121,13 @@ export class VoiceController {
     return { ok: true, message: 'Audio push queued and SSE notified' };
   }
 
-  @Public()
+  @UseGuards(DeviceGuard)
   @ApiVoicePushPendingDocs()
   @Get('push-pending')
   async pushPending(
-    @Headers('x-device-mac') mac: string,
+    @AuthUser() device: any,
     @Res() res: Response,
   ) {
-    const device = await this.verifyDeviceMac(mac);
     const queue = this.pushQueue.get(device.macAddress) || [];
 
     if (queue.length === 0) {
