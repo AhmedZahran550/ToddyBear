@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Device } from './device.entity';
@@ -10,6 +10,7 @@ export enum ChatRole {
 }
 
 @Entity('chats')
+@Index('USER_DEVICE_CHAT_INDEX', ['userId', 'deviceId', 'createdAt'])
 export class Chat extends BaseEntity {
   @Column({ type: 'enum', enum: ChatRole })
   role: ChatRole;

@@ -1,8 +1,9 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 
 @Entity('usage')
+@Index('USER_USAGE_INDEX', ['userId', 'createdAt'])
 export class Usage extends BaseEntity {
   @Column({ default: 0 })
   promptTokens: number;
