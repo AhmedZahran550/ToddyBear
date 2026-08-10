@@ -19,7 +19,8 @@ export function ApiVoiceAssistantDocs() {
   return applyDecorators(
     ApiOperation({
       summary: 'Voice Assistant Audio Pipeline',
-      description: 'Receives raw audio stream from hardware device, performs Speech-to-Text (STT), processes intent/AI response, and returns Text-to-Speech (TTS) audio stream.',
+      description:
+        'Receives raw audio stream (WAV/PCM) from hardware device, performs Speech-to-Text (STT via Groq Whisper), processes intent / Groq LLaMA AI response with child-friendly prompt and chat history, and returns Text-to-Speech (TTS via Cartesia PCM 16kHz) audio stream.',
     }),
     ApiHeader({
       name: 'x-device-mac',
@@ -31,11 +32,13 @@ export function ApiVoiceAssistantDocs() {
     ApiProduces('application/octet-stream'),
     ApiResponse({
       status: 200,
-      description: 'Audio response generated successfully.',
+      description:
+        'Audio response generated successfully. Returns raw PCM 16kHz audio stream with headers X-Audio-Format: pcm_s16le and X-Sample-Rate: 16000.',
     }),
-    ApiResponse({ status: 204, description: 'No Speech Detected' }),
-    ApiResponse({ status: 400, description: 'Invalid or missing audio payload' }),
+    ApiResponse({ status: 204, description: 'No Speech Detected / Silence' }),
+    ApiResponse({ status: 400, description: 'Audio payload too short or missing' }),
     ApiResponse({ status: 403, description: 'Missing or unregistered X-Device-Mac header' }),
+    ApiResponse({ status: 500, description: 'STT, AI, or TTS provider processing failure' }),
   );
 }
 

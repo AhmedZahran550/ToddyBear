@@ -21,10 +21,23 @@ export class ChatsService extends DatabaseService<Chat> {
     });
   }
 
-  async findRecentHistory(userId: string, limit = 12): Promise<Chat[]> {
+  async findRecentHistory(
+    userId?: string,
+    deviceId?: string,
+    limit = 12,
+  ): Promise<Chat[]> {
+    const where: any = {};
+    if (deviceId) {
+      where.deviceId = deviceId;
+    } else if (userId) {
+      where.userId = userId;
+    } else {
+      return [];
+    }
+
     return this.chatRepo
       .find({
-        where: { userId },
+        where,
         order: { createdAt: 'DESC' },
         take: limit,
       })

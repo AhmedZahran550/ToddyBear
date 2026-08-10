@@ -58,37 +58,47 @@ export class VoiceController {
   @Post('assistant')
   async assistant(
     @Headers('x-device-mac') mac: string,
-    @Req() req: Request,
+    @Req() req: Request & { rawBody?: Buffer },
     @Res() res: Response,
   ) {
     const device = await this.verifyDeviceMac(mac);
 
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', async () => {
-      const audioBuffer = Buffer.concat(chunks);
-      if (audioBuffer.length < 100) {
-        return res.status(400).send();
-      }
+    let audioBuffer: Buffer;
+    if (req.rawBody && req.rawBody.length > 0) {
+      audioBuffer = req.rawBody;
+    } else {
+      audioBuffer = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => resolve(Buffer.concat(chunks)));
+        req.on('error', (err) => reject(err));
+      });
+    }
 
-      const userText = await this.sttService.speechToText(audioBuffer);
-      if (!userText) {
-        return res.status(204).send();
-      }
+    if (!audioBuffer || audioBuffer.length < 100) {
+      throw new BadRequestException('Audio payload too short or missing');
+    }
 
-      const userId = device.userId;
-      const alarmReply = userId
-        ? await this.alarmIntentService.handleAlarmFlow(userId, userText)
-        : null;
-      const replyText =
-        alarmReply ||
-        (await this.aiService.askAi(device.id, userText, device.user));
+    const userText = await this.sttService.speechToText(audioBuffer);
+    if (!userText || userText.trim().length === 0) {
+      return res.status(204).send();
+    }
 
-      const audioOutput = await this.ttsService.textToSpeech(replyText);
+    const userId = device.userId;
+    const alarmReply = userId
+      ? await this.alarmIntentService.handleAlarmFlow(userId, userText)
+      : null;
 
-      res.setHeader('Content-Type', 'application/octet-stream');
-      return res.status(200).send(audioOutput);
-    });
+    const replyText =
+      alarmReply ||
+      (await this.aiService.askAi(device.id, userText, device.user));
+
+    const audioOutput = await this.ttsService.textToSpeech(replyText);
+
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('X-Audio-Format', 'pcm_s16le');
+    res.setHeader('X-Sample-Rate', '16000');
+    return res.status(200).send(audioOutput);
   }
 
   @ApiVoicePushDocs()

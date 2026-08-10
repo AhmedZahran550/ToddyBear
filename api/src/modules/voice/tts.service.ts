@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -18,7 +22,7 @@ export class TtsService {
 
     if (!apiKey) {
       this.logger.error('CARTESIA_API_KEY is not configured');
-      return Buffer.alloc(0);
+      throw new InternalServerErrorException('TTS service is not configured');
     }
 
     try {
@@ -46,11 +50,15 @@ export class TtsService {
       );
 
       const buffer = Buffer.from(response.data);
-      this.logger.log(`🔊 TTS generated -> ${buffer.length} bytes for text: "${text.substring(0, 30)}..."`);
+      this.logger.log(
+        `🔊 TTS generated -> ${buffer.length} bytes for text: "${text.substring(0, 30)}..."`,
+      );
       return buffer;
     } catch (error) {
-      this.logger.error(`❌ Cartesia TTS Error: ${error?.response?.data || error?.message}`);
-      return Buffer.alloc(0);
+      const errMsg =
+        error?.response?.data?.toString() || error?.message || 'TTS failed';
+      this.logger.error(`❌ Cartesia TTS Error: ${errMsg}`);
+      throw new InternalServerErrorException(`Text-to-speech generation failed: ${errMsg}`);
     }
   }
 }

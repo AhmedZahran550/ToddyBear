@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as FormData from 'form-data';
@@ -40,7 +45,7 @@ export class SttService {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     if (!apiKey) {
       this.logger.error('GROQ_API_KEY is not configured');
-      return '';
+      throw new InternalServerErrorException('STT service is not configured');
     }
 
     try {
@@ -69,13 +74,15 @@ export class SttService {
       this.logger.log(`📝 STT (groq) -> ${text}`);
       return text;
     } catch (error) {
-      this.logger.error(`❌ Groq STT Error: ${error?.response?.data?.error?.message || error?.message}`);
-      return '';
+      const errMsg =
+        error?.response?.data?.error?.message || error?.message || 'STT failed';
+      this.logger.error(`❌ Groq STT Error: ${errMsg}`);
+      throw new BadRequestException(`Speech recognition failed: ${errMsg}`);
     }
   }
 
   private async speechToTextGoogle(audioBuffer: Buffer): Promise<string> {
-    this.logger.warn('Google STT fallback called');
-    return '';
+    this.logger.warn('Google STT provider is not yet implemented');
+    throw new BadRequestException('Google STT provider is not configured');
   }
 }

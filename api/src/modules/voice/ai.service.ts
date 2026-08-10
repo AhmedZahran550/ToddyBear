@@ -82,19 +82,20 @@ export class AiService {
 
     const userId = user?.id;
 
-    // Save user chat record if userId exists
-    if (userId) {
-      await this.chatsService.create({
-        userId,
-        role: ChatRole.USER,
-        content: userText,
-      });
-    }
+    // Save user chat record
+    await this.chatsService.create({
+      userId: userId || undefined,
+      deviceId,
+      role: ChatRole.USER,
+      content: userText,
+    });
 
     const systemPrompt = this.getSystemPromptForUser(user);
-    const history = userId
-      ? await this.chatsService.findRecentHistory(userId, 10)
-      : [];
+    const history = await this.chatsService.findRecentHistory(
+      userId,
+      deviceId,
+      10,
+    );
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -139,13 +140,12 @@ export class AiService {
       }
 
       // Save assistant reply
-      if (userId) {
-        await this.chatsService.create({
-          userId,
-          role: ChatRole.ASSISTANT,
-          content: reply,
-        });
-      }
+      await this.chatsService.create({
+        userId: userId || undefined,
+        deviceId,
+        role: ChatRole.ASSISTANT,
+        content: reply,
+      });
 
       this.logger.log(`🤖 AI -> ${reply}`);
       return reply;

@@ -1,6 +1,7 @@
 import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
+import { Device } from './device.entity';
 
 export enum ChatRole {
   USER = 'user',
@@ -16,10 +17,20 @@ export class Chat extends BaseEntity {
   @Column({ type: 'text' })
   content: string;
 
-  @ManyToOne(() => User, (user) => user.chats, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.chats, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user?: User;
 
-  @Column()
-  userId: string;
+  @Column({ nullable: true })
+  userId?: string;
+
+  @ManyToOne(() => Device, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'deviceId' })
+  device?: Device;
+
+  @Column({ nullable: true })
+  deviceId?: string;
 }
