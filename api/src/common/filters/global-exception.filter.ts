@@ -10,7 +10,7 @@ import { Response, Request } from 'express';
 
 const STATUS_TO_ERROR_CODE: Record<number, string> = {
   [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
-  [HttpStatus.UNAUTHORIZED]: 'INVALID_CREDENTIALS',
+  [HttpStatus.UNAUTHORIZED]: 'UNAUTHORIZED',
   [HttpStatus.FORBIDDEN]: 'FORBIDDEN',
   [HttpStatus.NOT_FOUND]: 'RESOURCE_NOT_FOUND',
   [HttpStatus.CONFLICT]: 'CONFLICT',
@@ -21,6 +21,7 @@ const STATUS_TO_ERROR_CODE: Record<number, string> = {
 
 const MESSAGE_TO_ERROR_CODE: Record<string, string> = {
   'Invalid credentials': 'INVALID_CREDENTIALS',
+  Unauthorized: 'UNAUTHORIZED',
   'Email already exists': 'EMAIL_EXISTS',
   'Please verify your email before logging in': 'VERIFY_EMAIL',
   'Account is inactive': 'ACCOUNT_INACTIVE',
