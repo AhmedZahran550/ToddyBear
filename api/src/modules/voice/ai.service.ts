@@ -53,31 +53,52 @@ export class AiService {
   }
 
   private getSystemPromptForUser(
-    user?: { name?: string; userName?: string; firstName?: string; preferredName?: string; age?: number | string; gender?: string } | null,
+    user?: {
+      name?: string;
+      userName?: string;
+      firstName?: string;
+      lastName?: string;
+      preferredName?: string;
+      age?: number | string;
+      gender?: string;
+      deviceName?: string;
+    } | null,
+    deviceName?: string | null,
   ): string {
     const datetimeText = this.getCurrentDatetimeArabic();
+    const assistantName =
+      deviceName?.trim() ||
+      user?.deviceName?.trim() ||
+      'تودي';
 
-    if (!user) {
-      return `أنت مساعد صوتي ذكي، ردودك لازم تكون مختصرة وواضحة ومناسبة لتتحول لصوت (من غير رموز أو تنسيق ماركداون)، جاوب باللغة اللي المستخدم بيتكلم بيها. ${datetimeText}`;
-    }
-
-    const name =
-      user.userName ||
-      user.preferredName ||
-      user.firstName ||
-      (user as any).name ||
+    const childName =
+      user?.preferredName ||
+      user?.firstName ||
+      user?.userName ||
+      (user as any)?.name ||
       'طفل';
-    const age = user.age ? `${user.age} سنين` : '';
+    const age = user?.age ? `${user.age} سنين` : '';
     const genderDesc =
-      user.gender === 'boy' ? 'ولد' : user.gender === 'girl' ? 'بنت' : 'طفل';
+      user?.gender === 'boy' ? 'ولد' : user?.gender === 'girl' ? 'بنت' : 'طفل';
 
-    return `أنت مساعد صوتي ذكي وصديق مقرب لطفل اسمه '${name}'${age ? `، عمره ${age}` : ''}، وهو ${genderDesc}. ردودك لازم تكون دافية، مشجعة، ومناسبة تمامًا لعمر ${age || 'الأطفال'}. تكلم معاه باسمه '${name}' بشكل طبيعي وودود. خلي ردودك مختصرة وواضحة عشان تتحول لصوت بسهولة. ما تستخدمش رموز أو تنسيق ماركداون. جاوب باللغة اللي بيتكلم بيها. ${datetimeText}`;
+    return `اسمك هو '${assistantName}'، وأنت دبدوب ومساعد صوتي ذكي وصديق مقرب لطفل اسمه '${childName}'${age ? `، عمره ${age}` : ''}، وهو ${genderDesc}. إذا سألك عن اسمك أو من أنت، جاوبه بثقة وود إن اسمك '${assistantName}'. ردودك لازم تكون دافية، مشجعة، ومناسبة تمامًا لعمر ${age || 'الأطفال'}. تكلم معاه باسمه '${childName}' بشكل طبيعي وودود. خلي ردودك مختصرة وواضحة عشان تتحول لصوت بسهولة. ما تستخدمش رموز أو تنسيق ماركداون. جاوب باللغة اللي بيتكلم بيها. ${datetimeText}`;
   }
 
   async askAi(
     deviceId: string,
     userText: string,
-    user?: { id?: string; userId?: string; name?: string; userName?: string; firstName?: string; preferredName?: string; age?: number | string; gender?: string } | null,
+    user?: {
+      id?: string;
+      userId?: string;
+      name?: string;
+      userName?: string;
+      firstName?: string;
+      lastName?: string;
+      preferredName?: string;
+      age?: number | string;
+      gender?: string;
+      deviceName?: string;
+    } | null,
   ): Promise<string> {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     const model = 'llama-3.3-70b-versatile';
@@ -87,10 +108,41 @@ export class AiService {
       return 'معذرة، نواجه مشكلة في الخدمة حالياً.';
     }
 
+    // Try fetching fresh device & user info from database if deviceId is available
+    let deviceName: string | null = null;
+    let fullUserData = user;
+
+    if (deviceId) {
+      try {
+        const deviceEntity = await this.devicesService.findByIdWithUser(deviceId);
+        if (deviceEntity) {
+          deviceName = deviceEntity.name || null;
+          if (deviceEntity.user) {
+            fullUserData = {
+              ...user,
+              id: deviceEntity.user.id,
+              userId: deviceEntity.user.id,
+              firstName: deviceEntity.user.firstName,
+              lastName: deviceEntity.user.lastName,
+              preferredName: deviceEntity.user.preferredName,
+              userName:
+                deviceEntity.user.preferredName ||
+                `${deviceEntity.user.firstName} ${deviceEntity.user.lastName}`.trim(),
+              age: deviceEntity.user.age,
+              gender: deviceEntity.user.gender,
+              deviceName: deviceEntity.name,
+            };
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Could not load fresh device/user entity for device ${deviceId}: ${err.message}`);
+      }
+    }
+
     const userId =
-      (user as any)?.type === 'device'
-        ? user?.userId
-        : user?.userId || user?.id;
+      (fullUserData as any)?.type === 'device'
+        ? fullUserData?.userId
+        : fullUserData?.userId || fullUserData?.id;
 
     // Save user chat record
     await this.chatsService.create({
@@ -100,7 +152,7 @@ export class AiService {
       content: userText,
     });
 
-    const systemPrompt = this.getSystemPromptForUser(user);
+    const systemPrompt = this.getSystemPromptForUser(fullUserData, deviceName);
     const history = await this.chatsService.findRecentHistory(
       userId,
       deviceId,

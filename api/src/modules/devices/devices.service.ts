@@ -84,6 +84,13 @@ export class DevicesService extends DatabaseService<Device> {
     });
   }
 
+  async findByIdWithUser(id: string): Promise<Device | null> {
+    return this.deviceRepo.findOne({
+      where: { id },
+      relations: { user: true },
+    });
+  }
+
   async findByUser(userId: string, pagination: PaginationQueryDto) {
     return this.findAll(pagination, { where: { userId } });
   }

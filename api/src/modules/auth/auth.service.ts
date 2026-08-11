@@ -69,6 +69,7 @@ export class AuthService {
       macAddress: device.macAddress,
       userId: device.user.id,
       userName: userName,
+      deviceName: device.name || 'تودي',
       age: device.user.age,
       gender: device.user.gender,
     };

@@ -15,6 +15,7 @@ export interface JwtPayload {
   macAddress?: string;
   userId?: string;
   userName?: string;
+  deviceName?: string;
   age?: number;
   gender?: string;
 }
@@ -87,6 +88,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         macAddress: payload.macAddress,
         userId: payload.userId,
         userName: payload.userName,
+        deviceName: payload.deviceName,
+        name: payload.deviceName,
         age: payload.age,
         gender: payload.gender,
         type: 'device',

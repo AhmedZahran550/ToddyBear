@@ -93,6 +93,7 @@ export class VoiceController {
     const userPayload = {
       ...device,
       id: device.userId,
+      deviceName: device.deviceName || device.name,
     };
 
     const replyText =
