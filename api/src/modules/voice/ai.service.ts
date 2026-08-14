@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { DevicesService } from '../devices/devices.service';
 import { ChatsService } from '../chats/chats.service';
 import { UsageService } from '../usage/usage.service';
 import { ChatRole } from '../../database/entities/chat.entity';
@@ -22,7 +21,6 @@ export class AiService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly devicesService: DevicesService,
     private readonly chatsService: ChatsService,
     private readonly usageService: UsageService,
   ) {}
@@ -193,59 +191,25 @@ ${datetimeText}`;
       return errorFallback;
     }
 
-    // Try fetching fresh device & user info from database if deviceId is available
-    let deviceName: string | null = null;
-    let fullUserData = user;
-
-    if (deviceId) {
-      try {
-        const deviceEntity =
-          await this.devicesService.findByIdWithUser(deviceId);
-        if (deviceEntity) {
-          deviceName = deviceEntity.name || null;
-          if (deviceEntity.user) {
-            fullUserData = {
-              ...user,
-              id: deviceEntity.user.id,
-              userId: deviceEntity.user.id,
-              firstName: deviceEntity.user.firstName,
-              lastName: deviceEntity.user.lastName,
-              preferredName: deviceEntity.user.preferredName,
-              userName:
-                deviceEntity.user.preferredName ||
-                `${deviceEntity.user.firstName} ${deviceEntity.user.lastName}`.trim(),
-              age: deviceEntity.user.age,
-              gender: deviceEntity.user.gender,
-              deviceName: deviceEntity.name,
-            };
-          }
-        }
-      } catch (err) {
-        this.logger.warn(
-          `Could not load fresh device/user entity for device ${deviceId}: ${err.message}`,
-        );
-      }
-    }
-
     const userId =
-      (fullUserData as any)?.type === 'device'
-        ? fullUserData?.userId
-        : fullUserData?.userId || fullUserData?.id;
+      (user as any)?.type === 'device'
+        ? user?.userId
+        : user?.userId || user?.id;
 
-    // Save user chat record
-    await this.chatsService.create({
-      userId: userId || undefined,
-      deviceId,
-      role: ChatRole.USER,
-      content: userText,
-    });
+    const deviceName = user?.deviceName || null;
 
-    const systemPrompt = this.getSystemPromptForUser(fullUserData, deviceName);
-    const history = await this.chatsService.findRecentHistory(
-      userId,
-      deviceId,
-      10,
-    );
+    // Parallelize user chat persistence and history retrieval
+    const [, history] = await Promise.all([
+      this.chatsService.create({
+        userId: userId || undefined,
+        deviceId,
+        role: ChatRole.USER,
+        content: userText,
+      }),
+      this.chatsService.findRecentHistory(userId, deviceId, 10),
+    ]);
+
+    const systemPrompt = this.getSystemPromptForUser(user, deviceName);
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -281,24 +245,32 @@ ${datetimeText}`;
 
       const aiParsedResponse = this.parseAiResponse(rawContent);
 
-      // Log AI token consumption to usage table
+      // Fire-and-forget: Log AI token consumption in background without blocking TTS
       if (usage && userId) {
-        await this.usageService.logTokens({
-          promptTokens: usage.prompt_tokens || 0,
-          completionTokens: usage.completion_tokens || 0,
-          totalTokens: usage.total_tokens || 0,
-          model,
-          userId,
-        });
+        this.usageService
+          .logTokens({
+            promptTokens: usage.prompt_tokens || 0,
+            completionTokens: usage.completion_tokens || 0,
+            totalTokens: usage.total_tokens || 0,
+            model,
+            userId,
+          })
+          .catch((err) =>
+            this.logger.error(`Failed to log token usage: ${err.message}`),
+          );
       }
 
-      // Save assistant reply (spoken text content, not full JSON string)
-      await this.chatsService.create({
-        userId: userId || undefined,
-        deviceId,
-        role: ChatRole.ASSISTANT,
-        content: aiParsedResponse.reply,
-      });
+      // Fire-and-forget: Save assistant reply in background without blocking TTS
+      this.chatsService
+        .create({
+          userId: userId || undefined,
+          deviceId,
+          role: ChatRole.ASSISTANT,
+          content: aiParsedResponse.reply,
+        })
+        .catch((err) =>
+          this.logger.error(`Failed to save assistant chat reply: ${err.message}`),
+        );
 
       this.logger.log(
         `🤖 AI -> reply: "${aiParsedResponse.reply}" | setAlarm: ${aiParsedResponse.setAlarm} (${aiParsedResponse.alarmTime}) | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
@@ -316,4 +288,5 @@ ${datetimeText}`;
     }
   }
 }
+
 
