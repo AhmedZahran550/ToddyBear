@@ -9,16 +9,17 @@ import {
   UseGuards,
   ForbiddenException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { SttService } from './stt.service';
 import { TtsService } from './tts.service';
 import { AiService } from './ai.service';
-import { AlarmIntentService } from './alarm-intent.service';
+import { AlarmsService } from '../alarms/alarms.service';
+import { MessagePlaceholderService } from './message-placeholder.service';
 import { DevicesService } from '../devices/devices.service';
 import { SseService } from '../sse/sse.service';
 import { PushMessageDto } from './dto/push-message.dto';
-import { Public } from '../../common/decorators/public.decorator';
 import { AuthUser } from '../../common/decorators/auth-user.decorator';
 import { DeviceGuard } from '../../common/guards/device.guard';
 import {
@@ -33,28 +34,18 @@ import {
 @ApiVoiceDocs()
 @Controller('voice')
 export class VoiceController {
+  private readonly logger = new Logger(VoiceController.name);
   private pushQueue = new Map<string, Buffer[]>();
 
   constructor(
     private readonly sttService: SttService,
     private readonly ttsService: TtsService,
     private readonly aiService: AiService,
-    private readonly alarmIntentService: AlarmIntentService,
+    private readonly alarmsService: AlarmsService,
+    private readonly messagePlaceholderService: MessagePlaceholderService,
     private readonly devicesService: DevicesService,
     private readonly sseService: SseService,
   ) {}
-
-  private async verifyDeviceMac(mac: string) {
-    if (!mac) {
-      throw new ForbiddenException('Missing X-Device-Mac header');
-    }
-    const device = await this.devicesService.findByMacAddressWithUser(mac);
-    if (!device) {
-      throw new ForbiddenException('Unregistered device MAC');
-    }
-    await this.devicesService.markHardwareSeen(mac);
-    return device;
-  }
 
   @UseGuards(DeviceGuard)
   @ApiVoiceAssistantDocs()
@@ -86,21 +77,51 @@ export class VoiceController {
     }
 
     const userId = device.userId;
-    const alarmReply = userId
-      ? await this.alarmIntentService.handleAlarmFlow(userId, userText)
-      : null;
-
     const userPayload = {
       ...device,
       id: device.userId,
       deviceName: device.deviceName || device.name,
     };
 
-    const replyText =
-      alarmReply ||
-      (await this.aiService.askAi(device.id, userText, userPayload));
+    const aiResponse = await this.aiService.askAi(
+      device.id,
+      userText,
+      userPayload,
+    );
 
-    const audioOutput = await this.ttsService.textToSpeech(replyText);
+    // Handle alarm flag from AI response
+    if (aiResponse.setAlarm && aiResponse.alarmTime && userId) {
+      try {
+        this.alarmsService.create({
+          userId,
+          time: aiResponse.alarmTime,
+          label: aiResponse.alarmLabel || undefined,
+          enabled: true,
+        });
+        this.logger.log(
+          `⏰ Alarm created via AI for user ${userId} at ${aiResponse.alarmTime}`,
+        );
+      } catch (err) {
+        this.logger.error(`Failed to create alarm via AI flag: ${err.message}`);
+      }
+    }
+
+    // Handle message sending flag from AI response
+    if (aiResponse.sendMessage && userId) {
+      try {
+        this.messagePlaceholderService.sendMessage({
+          userId,
+          recipient: aiResponse.messageTo,
+          content: aiResponse.messageContent,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Failed to process send message via AI flag: ${err.message}`,
+        );
+      }
+    }
+
+    const audioOutput = await this.ttsService.textToSpeech(aiResponse.reply);
 
     res.setHeader('Content-Type', 'audio/wav');
     res.setHeader('Content-Disposition', 'inline; filename="response.wav"');
@@ -112,10 +133,9 @@ export class VoiceController {
   @ApiVoicePushDocs()
   @Post('push')
   async pushMessage(
-    @Headers('x-device-mac') mac: string,
+    @AuthUser() device: any,
     @Body() pushMessageDto: PushMessageDto,
   ) {
-    const device = await this.verifyDeviceMac(mac);
     const audio = await this.ttsService.textToSpeech(pushMessageDto.text);
 
     if (!this.pushQueue.has(device.macAddress)) {
@@ -131,10 +151,7 @@ export class VoiceController {
   @UseGuards(DeviceGuard)
   @ApiVoicePushPendingDocs()
   @Get('push-pending')
-  async pushPending(
-    @AuthUser() device: any,
-    @Res() res: Response,
-  ) {
+  async pushPending(@AuthUser() device: any, @Res() res: Response) {
     const queue = this.pushQueue.get(device.macAddress) || [];
 
     if (queue.length === 0) {

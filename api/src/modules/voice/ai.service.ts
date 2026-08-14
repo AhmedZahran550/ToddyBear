@@ -5,7 +5,16 @@ import { DevicesService } from '../devices/devices.service';
 import { ChatsService } from '../chats/chats.service';
 import { UsageService } from '../usage/usage.service';
 import { ChatRole } from '../../database/entities/chat.entity';
-import { User } from '../../database/entities/user.entity';
+
+export interface AiResponse {
+  reply: string;
+  setAlarm: boolean;
+  sendMessage: boolean;
+  alarmTime: string | null;
+  alarmLabel: string | null;
+  messageTo: string | null;
+  messageContent: string | null;
+}
 
 @Injectable()
 export class AiService {
@@ -18,30 +27,30 @@ export class AiService {
     private readonly usageService: UsageService,
   ) {}
 
-  private getCurrentDatetimeArabic(): string {
+  private getCurrentDatetimeText(): string {
     const now = new Date();
     const weekdays = [
-      'الأحد',
-      'الإثنين',
-      'الثلاثاء',
-      'الأربعاء',
-      'الخميس',
-      'الجمعة',
-      'السبت',
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
     ];
     const months = [
-      'يناير',
-      'فبراير',
-      'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
-      'سبتمبر',
-      'أكتوبر',
-      'نوفمبر',
-      'ديسمبر',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     const weekday = weekdays[now.getDay()];
@@ -49,7 +58,7 @@ export class AiService {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
 
-    return `معلومة مهمة عن الوقت الحالي: النهارده يوم ${weekday} الموافق ${now.getDate()} ${month} ${now.getFullYear()}، والساعة دلوقتي ${hours}:${minutes}. استخدم المعلومة دي لو الطفل سأل عن التاريخ أو اليوم أو الوقت، وماتقولش إنك مش عارف.`;
+    return `Current date and time context: Today is ${weekday}, ${now.getDate()} ${month} ${now.getFullYear()}, and current local time is ${hours}:${minutes}. Use this information if asked about day, date, or time.`;
   }
 
   private getSystemPromptForUser(
@@ -65,23 +74,89 @@ export class AiService {
     } | null,
     deviceName?: string | null,
   ): string {
-    const datetimeText = this.getCurrentDatetimeArabic();
+    const datetimeText = this.getCurrentDatetimeText();
     const assistantName =
-      deviceName?.trim() ||
-      user?.deviceName?.trim() ||
-      'تودي';
+      deviceName?.trim() || user?.deviceName?.trim() || 'Toddy';
 
     const childName =
       user?.preferredName ||
       user?.firstName ||
       user?.userName ||
       (user as any)?.name ||
-      'طفل';
-    const age = user?.age ? `${user.age} سنين` : '';
+      'Child';
+    const age = user?.age ? `${user.age} years old` : 'child';
     const genderDesc =
-      user?.gender === 'boy' ? 'ولد' : user?.gender === 'girl' ? 'بنت' : 'طفل';
+      user?.gender === 'boy' ? 'boy' : user?.gender === 'girl' ? 'girl' : 'child';
 
-    return `اسمك هو '${assistantName}'، وأنت دبدوب ومساعد صوتي ذكي وصديق مقرب لطفل اسمه '${childName}'${age ? `، عمره ${age}` : ''}، وهو ${genderDesc}. إذا سألك عن اسمك أو من أنت، جاوبه بثقة وود إن اسمك '${assistantName}'. ردودك لازم تكون دافية، مشجعة، ومناسبة تمامًا لعمر ${age || 'الأطفال'}. تكلم معاه باسمه '${childName}' بشكل طبيعي وودود. خلي ردودك مختصرة وواضحة عشان تتحول لصوت بسهولة. ما تستخدمش رموز أو تنسيق ماركداون. جاوب باللغة اللي بيتكلم بيها. ${datetimeText}`;
+    return `Your name is '${assistantName}'. You are a cute teddy bear, a smart voice assistant, and a close friend to a ${genderDesc} named '${childName}' (${age}).
+If asked who you are or what your name is, answer warmly that your name is '${assistantName}'.
+Your tone must be warm, encouraging, friendly, and strictly age-appropriate. Speak with '${childName}' naturally.
+Keep your text response ('reply') concise and clear so it can be easily converted to audio speech. Do NOT use markdown formatting or emojis in 'reply'.
+Reply in the user's spoken language (e.g. if the child speaks Arabic, write 'reply' in spoken friendly Arabic).
+
+IMPORTANT INSTRUCTION FOR JSON OUTPUT:
+You MUST ALWAYS respond strictly with a valid JSON object matching this schema:
+{
+  "reply": "<your warm spoken response to the child in the child's language>",
+  "setAlarm": <boolean true/false>,
+  "sendMessage": <boolean true/false>,
+  "alarmTime": "<HH:MM 24-hour format string if setAlarm is true, otherwise null>",
+  "alarmLabel": "<short label string if alarm has a purpose, otherwise null>",
+  "messageTo": "<recipient name string if sendMessage is true, otherwise null>",
+  "messageContent": "<the text of the message if sendMessage is true, otherwise null>"
+}
+
+Action Rules:
+1. "setAlarm": Set to true IF AND ONLY IF the user is asking to set an alarm, reminder, or wake-up alert. Extract "alarmTime" in 24-hour format "HH:MM" (e.g. "07:30" or "20:00"). If no time is specified yet, ask for the time in "reply" and set "setAlarm" to false.
+2. "sendMessage": Set to true IF AND ONLY IF the user asks to send a message to someone (e.g. dad, mom, parent). Extract recipient name into "messageTo" and message text into "messageContent".
+3. For standard conversation, set "setAlarm": false and "sendMessage": false.
+
+${datetimeText}`;
+  }
+
+  private parseAiResponse(raw: string): AiResponse {
+    const fallback: AiResponse = {
+      reply: raw || 'معذرة، لم أستطع إجابة سؤالك الآن.',
+      setAlarm: false,
+      sendMessage: false,
+      alarmTime: null,
+      alarmLabel: null,
+      messageTo: null,
+      messageContent: null,
+    };
+
+    if (!raw) return fallback;
+
+    try {
+      let cleaned = raw.trim();
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+
+      const parsed = JSON.parse(cleaned);
+      return {
+        reply: typeof parsed.reply === 'string' ? parsed.reply : fallback.reply,
+        setAlarm: Boolean(parsed.setAlarm),
+        sendMessage: Boolean(parsed.sendMessage),
+        alarmTime:
+          typeof parsed.alarmTime === 'string' ? parsed.alarmTime : null,
+        alarmLabel:
+          typeof parsed.alarmLabel === 'string' ? parsed.alarmLabel : null,
+        messageTo:
+          typeof parsed.messageTo === 'string' ? parsed.messageTo : null,
+        messageContent:
+          typeof parsed.messageContent === 'string'
+            ? parsed.messageContent
+            : null,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Failed to parse AI JSON response: ${err.message}. Raw string: ${raw}`,
+      );
+      return fallback;
+    }
   }
 
   async askAi(
@@ -99,13 +174,23 @@ export class AiService {
       gender?: string;
       deviceName?: string;
     } | null,
-  ): Promise<string> {
+  ): Promise<AiResponse> {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     const model = 'llama-3.3-70b-versatile';
 
+    const errorFallback: AiResponse = {
+      reply: 'معذرة، نواجه مشكلة في الخدمة حالياً.',
+      setAlarm: false,
+      sendMessage: false,
+      alarmTime: null,
+      alarmLabel: null,
+      messageTo: null,
+      messageContent: null,
+    };
+
     if (!apiKey) {
       this.logger.error('GROQ_API_KEY is not configured');
-      return 'معذرة، نواجه مشكلة في الخدمة حالياً.';
+      return errorFallback;
     }
 
     // Try fetching fresh device & user info from database if deviceId is available
@@ -114,7 +199,8 @@ export class AiService {
 
     if (deviceId) {
       try {
-        const deviceEntity = await this.devicesService.findByIdWithUser(deviceId);
+        const deviceEntity =
+          await this.devicesService.findByIdWithUser(deviceId);
         if (deviceEntity) {
           deviceName = deviceEntity.name || null;
           if (deviceEntity.user) {
@@ -135,7 +221,9 @@ export class AiService {
           }
         }
       } catch (err) {
-        this.logger.warn(`Could not load fresh device/user entity for device ${deviceId}: ${err.message}`);
+        this.logger.warn(
+          `Could not load fresh device/user entity for device ${deviceId}: ${err.message}`,
+        );
       }
     }
 
@@ -176,6 +264,7 @@ export class AiService {
           messages,
           temperature: 0.7,
           max_completion_tokens: 300,
+          response_format: { type: 'json_object' },
         },
         {
           headers: {
@@ -186,9 +275,11 @@ export class AiService {
         },
       );
 
-      const reply =
+      const rawContent =
         response.data?.choices?.[0]?.message?.content?.trim() || '';
       const usage = response.data?.usage;
+
+      const aiParsedResponse = this.parseAiResponse(rawContent);
 
       // Log AI token consumption to usage table
       if (usage && userId) {
@@ -201,21 +292,28 @@ export class AiService {
         });
       }
 
-      // Save assistant reply
+      // Save assistant reply (spoken text content, not full JSON string)
       await this.chatsService.create({
         userId: userId || undefined,
         deviceId,
         role: ChatRole.ASSISTANT,
-        content: reply,
+        content: aiParsedResponse.reply,
       });
 
-      this.logger.log(`🤖 AI -> ${reply}`);
-      return reply;
+      this.logger.log(
+        `🤖 AI -> reply: "${aiParsedResponse.reply}" | setAlarm: ${aiParsedResponse.setAlarm} (${aiParsedResponse.alarmTime}) | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
+      );
+
+      return aiParsedResponse;
     } catch (error) {
       this.logger.error(
         `❌ Groq Chat Error: ${error?.response?.data?.error?.message || error?.message}`,
       );
-      return 'معذرة، لم أستطع إجابة سؤالك الآن.';
+      return {
+        ...errorFallback,
+        reply: 'معذرة، لم أستطع إجابة سؤالك الآن.',
+      };
     }
   }
 }
+

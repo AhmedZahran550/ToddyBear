@@ -25,7 +25,9 @@ export class DevicesService extends DatabaseService<Device> {
 
     const existingMac = await this.findByMacAddress(macAddress);
     if (existingMac) {
-      throw new ConflictException(`Device with MAC ${macAddress} already exists`);
+      throw new ConflictException(
+        `Device with MAC ${macAddress} already exists`,
+      );
     }
 
     const existingSerial = await this.findBySerialNumber(serialNumber);
@@ -93,14 +95,5 @@ export class DevicesService extends DatabaseService<Device> {
 
   async findByUser(userId: string, pagination: PaginationQueryDto) {
     return this.findAll(pagination, { where: { userId } });
-  }
-
-  async markHardwareSeen(macAddress: string): Promise<void> {
-    const device = await this.findByMacAddress(macAddress);
-    if (device) {
-      device.isOnline = true;
-      device.lastSeenAt = new Date();
-      await this.deviceRepo.save(device);
-    }
   }
 }

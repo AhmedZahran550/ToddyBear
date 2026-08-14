@@ -3,7 +3,7 @@ import { VoiceController } from './voice.controller';
 import { SttService } from './stt.service';
 import { TtsService } from './tts.service';
 import { AiService } from './ai.service';
-import { AlarmIntentService } from './alarm-intent.service';
+import { MessagePlaceholderService } from './message-placeholder.service';
 import { DevicesModule } from '../devices/devices.module';
 import { AlarmsModule } from '../alarms/alarms.module';
 import { ChatsModule } from '../chats/chats.module';
@@ -19,7 +19,8 @@ import { SseModule } from '../sse/sse.module';
     SseModule,
   ],
   controllers: [VoiceController],
-  providers: [SttService, TtsService, AiService, AlarmIntentService],
-  exports: [SttService, TtsService, AiService],
+  providers: [SttService, TtsService, AiService, MessagePlaceholderService],
+  exports: [SttService, TtsService, AiService, MessagePlaceholderService],
 })
 export class VoiceModule {}
+

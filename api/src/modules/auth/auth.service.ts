@@ -75,7 +75,10 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload);
-
+    this.devicesService.update(device.id, {
+      lastSeenAt: new Date(),
+      isOnline: true,
+    });
     return {
       accessToken,
       device: {
