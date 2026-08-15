@@ -23,6 +23,8 @@ import { ChatsModule } from './modules/chats/chats.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { SseModule } from './modules/sse/sse.module';
 import { VoiceModule } from './modules/voice/voice.module';
+import { CloudStorageModule } from './modules/cloud-storage/cloud-storage.module';
+import { RingtonesModule } from './modules/ringtones/ringtones.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { DBExceptionFilter } from './common/filters/query-failed-exception.filter';
 
@@ -34,6 +36,8 @@ import { DBExceptionFilter } from './common/filters/query-failed-exception.filte
     }),
     TypeOrmModule.forRootAsync(typeOrmAsyncConfig),
     ScheduleModule.forRoot(),
+    CloudStorageModule,
+    RingtonesModule,
     LogsModule,
     OtpModule,
     UsersModule,

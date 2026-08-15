@@ -1,4 +1,10 @@
-import { IsOptional, IsString, Matches, IsBoolean } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Matches,
+  IsBoolean,
+  IsUUID,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateAlarmDto {
@@ -28,4 +34,20 @@ export class UpdateAlarmDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Target Device ID to trigger the alarm on',
+    example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+  })
+  @IsOptional()
+  @IsUUID()
+  deviceId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Ringtone ID to play when the alarm goes off (pass null or omit to clear)',
+    example: 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+  })
+  @IsOptional()
+  @IsUUID()
+  ringtoneId?: string;
 }

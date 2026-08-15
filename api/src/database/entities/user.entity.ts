@@ -4,6 +4,7 @@ import { Device } from './device.entity';
 import { Alarm } from './alarm.entity';
 import { Chat } from './chat.entity';
 import { Usage } from './usage.entity';
+import { Ringtone } from './ringtone.entity';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -48,4 +49,7 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Usage, (usage) => usage.user)
   usages: Usage[];
+
+  @OneToMany(() => Ringtone, (ringtone) => ringtone.user)
+  ringtones: Ringtone[];
 }
