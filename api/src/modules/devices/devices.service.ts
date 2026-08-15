@@ -96,4 +96,17 @@ export class DevicesService extends DatabaseService<Device> {
   async findByUser(userId: string, pagination: PaginationQueryDto) {
     return this.findAll(pagination, { where: { userId } });
   }
+
+  async setOnlineStatus(macAddress: string, isOnline: boolean): Promise<void> {
+    try {
+      const device = await this.findByMacAddress(macAddress);
+      if (device) {
+        device.isOnline = isOnline;
+        device.lastSeenAt = new Date();
+        await this.deviceRepo.save(device);
+      }
+    } catch {
+      // Non-blocking log or ignore if device not found yet
+    }
+  }
 }

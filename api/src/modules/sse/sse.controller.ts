@@ -1,4 +1,11 @@
-import { Controller, Sse, Param, MessageEvent } from '@nestjs/common';
+import {
+  Controller,
+  Sse,
+  Param,
+  Req,
+  MessageEvent,
+} from '@nestjs/common';
+import type { Request } from 'express';
 import { Observable } from 'rxjs';
 import { SseService } from './sse.service';
 import { Public } from '../../common/decorators/public.decorator';
@@ -14,7 +21,12 @@ export class SseController {
   @Sse('devices/:macAddress/events')
   deviceEvents(
     @Param('macAddress') macAddress: string,
+    @Req() req: Request,
   ): Observable<MessageEvent> {
+    req.on('close', () => {
+      this.sseService.removeStream(macAddress);
+    });
+
     return this.sseService.getStream(macAddress);
   }
 }
