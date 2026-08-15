@@ -12,7 +12,7 @@ export class AlarmsScheduler {
     private readonly sseService: SseService,
   ) {}
 
-  @Cron('*/20 * * * * *')
+  @Cron('0 * * * * *')
   async handleAlarmCheck() {
     try {
       const now = new Date();
@@ -47,7 +47,11 @@ export class AlarmsScheduler {
             `⏰ Triggering alarm ${alarm.id} (${alarm.time}) for device ${alarm.device.macAddress} (ringtone: ${alarm.ringtone?.name || 'none'})`,
           );
           this.sseService.notifyAlarm(alarm.device.macAddress, payload);
-        } else if (alarm.user && alarm.user.devices && alarm.user.devices.length > 0) {
+        } else if (
+          alarm.user &&
+          alarm.user.devices &&
+          alarm.user.devices.length > 0
+        ) {
           // Otherwise trigger for all devices registered to the user
           for (const dev of alarm.user.devices) {
             if (dev.macAddress) {
