@@ -21,7 +21,6 @@ export class AlarmsScheduler {
       const currentHM = `${hh}:${mm}`;
       const today = now.toISOString().split('T')[0];
       const dueAlarms = await this.alarmsService.findDueAlarms(currentHM);
-      console.log(dueAlarms);
 
       for (const alarm of dueAlarms) {
         if (alarm.lastTriggeredDate === today) {
@@ -29,7 +28,10 @@ export class AlarmsScheduler {
         }
 
         alarm.lastTriggeredDate = today;
-        await this.alarmsService.update(alarm.id, { lastTriggeredDate: today });
+        await this.alarmsService.update(alarm.id, {
+          lastTriggeredDate: today,
+          enabled: false,
+        });
 
         const ringtoneDownloadUrl = alarm.ringtoneId
           ? `/api/ringtones/${alarm.ringtoneId}/download`
