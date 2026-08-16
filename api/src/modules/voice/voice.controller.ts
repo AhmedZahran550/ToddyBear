@@ -89,20 +89,35 @@ export class VoiceController {
       userPayload,
     );
 
-    // Handle alarm flag from AI response
-    if (aiResponse.setAlarm && aiResponse.alarmTime && userId) {
-      try {
-        this.alarmsService.create({
-          userId,
-          time: aiResponse.alarmTime,
-          label: aiResponse.alarmLabel || undefined,
-          enabled: true,
-        });
-        this.logger.log(
-          `⏰ Alarm created via AI for user ${userId} at ${aiResponse.alarmTime}`,
-        );
-      } catch (err) {
-        this.logger.error(`Failed to create alarm via AI flag: ${err.message}`);
+    // Handle alarm actions from AI response
+    if (aiResponse.alarms && aiResponse.alarms.length > 0 && userId) {
+      for (const alarm of aiResponse.alarms) {
+        try {
+          if (alarm.action === 'set') {
+            await this.alarmsService.create({
+              userId,
+              time: alarm.time,
+              label: alarm.label || undefined,
+              deviceId: device.id || undefined,
+              enabled: true,
+            });
+            this.logger.log(
+              `⏰ Alarm created via AI for user ${userId} at ${alarm.time}`,
+            );
+          } else if (alarm.action === 'disable') {
+            const count = await this.alarmsService.disableByTime(
+              userId,
+              alarm.time,
+            );
+            this.logger.log(
+              `🔕 Alarm disabled via AI for user ${userId} at ${alarm.time} (${count} affected)`,
+            );
+          }
+        } catch (err) {
+          this.logger.error(
+            `Failed to ${alarm.action} alarm via AI flag: ${err.message}`,
+          );
+        }
       }
     }
 

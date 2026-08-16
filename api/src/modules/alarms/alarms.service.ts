@@ -32,4 +32,12 @@ export class AlarmsService extends DatabaseService<Alarm> {
       },
     });
   }
+
+  async disableByTime(userId: string, time: string): Promise<number> {
+    const result = await this.alarmRepo.update(
+      { userId, time, enabled: true },
+      { enabled: false },
+    );
+    return result.affected || 0;
+  }
 }

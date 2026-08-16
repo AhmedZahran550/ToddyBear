@@ -5,12 +5,16 @@ import { ChatsService } from '../chats/chats.service';
 import { UsageService } from '../usage/usage.service';
 import { ChatRole } from '../../database/entities/chat.entity';
 
+export interface AlarmAction {
+  action: 'set' | 'disable';
+  time: string;
+  label?: string | null;
+}
+
 export interface AiResponse {
   reply: string;
-  setAlarm: boolean;
+  alarms: AlarmAction[];
   sendMessage: boolean;
-  alarmTime: string | null;
-  alarmLabel: string | null;
   messageTo: string | null;
   messageContent: string | null;
 }
@@ -96,18 +100,24 @@ IMPORTANT INSTRUCTION FOR JSON OUTPUT:
 You MUST ALWAYS respond strictly with a valid JSON object matching this schema:
 {
   "reply": "<your warm spoken response to the child in the child's language>",
-  "setAlarm": <boolean true/false>,
+  "alarms": [
+    {
+      "action": "set" or "disable",
+      "time": "<HH:MM 24-hour format string>",
+      "label": "<short label string if alarm has a purpose, otherwise null>"
+    }
+  ],
   "sendMessage": <boolean true/false>,
-  "alarmTime": "<HH:MM 24-hour format string if setAlarm is true, otherwise null>",
-  "alarmLabel": "<short label string if alarm has a purpose, otherwise null>",
   "messageTo": "<recipient name string if sendMessage is true, otherwise null>",
   "messageContent": "<the text of the message if sendMessage is true, otherwise null>"
 }
 
 Action Rules:
-1. "setAlarm": Set to true IF AND ONLY IF the user is asking to set an alarm, reminder, or wake-up alert. Extract "alarmTime" in 24-hour format "HH:MM" (e.g. "07:30" or "20:00"). If no time is specified yet, ask for the time in "reply" and set "setAlarm" to false.
+1. "alarms": An array of alarm actions. Return an empty array [] if no alarm operation is requested.
+   - For each alarm the user wants to set, add an entry: {"action": "set", "time": "HH:MM", "label": "<optional label or null>"} in 24-hour format "HH:MM" (e.g. "07:30" or "20:00"). If the user asks to set multiple alarms (e.g. "set alarm for 7:00 and 8:30"), include each in the array. If no time is specified yet, ask for the time in "reply" and return [].
+   - For each alarm the user wants to disable / cancel / delete / stop (e.g. "cancel my 7:30 alarm", "turn off the 8 o'clock alarm", "disable alarms at 7 and 8"), add an entry: {"action": "disable", "time": "HH:MM", "label": null}.
 2. "sendMessage": Set to true IF AND ONLY IF the user asks to send a message to someone (e.g. dad, mom, parent). Extract recipient name into "messageTo" and message text into "messageContent".
-3. For standard conversation, set "setAlarm": false and "sendMessage": false.
+3. For standard conversation with no alarm or message request, return "alarms": [] and "sendMessage": false.
 
 ${datetimeText}`;
   }
@@ -115,10 +125,8 @@ ${datetimeText}`;
   private parseAiResponse(raw: string): AiResponse {
     const fallback: AiResponse = {
       reply: raw || 'معذرة، لم أستطع إجابة سؤالك الآن.',
-      setAlarm: false,
+      alarms: [],
       sendMessage: false,
-      alarmTime: null,
-      alarmLabel: null,
       messageTo: null,
       messageContent: null,
     };
@@ -134,14 +142,40 @@ ${datetimeText}`;
       }
 
       const parsed = JSON.parse(cleaned);
+
+      const alarms: AlarmAction[] = [];
+      if (Array.isArray(parsed.alarms)) {
+        for (const item of parsed.alarms) {
+          if (
+            item &&
+            (item.action === 'set' || item.action === 'disable') &&
+            typeof item.time === 'string' &&
+            item.time.trim().length > 0
+          ) {
+            alarms.push({
+              action: item.action,
+              time: item.time.trim(),
+              label:
+                typeof item.label === 'string' ? item.label.trim() : null,
+            });
+          }
+        }
+      } else if (parsed.setAlarm && typeof parsed.alarmTime === 'string') {
+        // Backward compatibility if single setAlarm format returned
+        alarms.push({
+          action: 'set',
+          time: parsed.alarmTime.trim(),
+          label:
+            typeof parsed.alarmLabel === 'string'
+              ? parsed.alarmLabel.trim()
+              : null,
+        });
+      }
+
       return {
         reply: typeof parsed.reply === 'string' ? parsed.reply : fallback.reply,
-        setAlarm: Boolean(parsed.setAlarm),
+        alarms,
         sendMessage: Boolean(parsed.sendMessage),
-        alarmTime:
-          typeof parsed.alarmTime === 'string' ? parsed.alarmTime : null,
-        alarmLabel:
-          typeof parsed.alarmLabel === 'string' ? parsed.alarmLabel : null,
         messageTo:
           typeof parsed.messageTo === 'string' ? parsed.messageTo : null,
         messageContent:
@@ -178,10 +212,8 @@ ${datetimeText}`;
 
     const errorFallback: AiResponse = {
       reply: 'معذرة، نواجه مشكلة في الخدمة حالياً.',
-      setAlarm: false,
+      alarms: [],
       sendMessage: false,
-      alarmTime: null,
-      alarmLabel: null,
       messageTo: null,
       messageContent: null,
     };
@@ -273,7 +305,7 @@ ${datetimeText}`;
         );
 
       this.logger.log(
-        `🤖 AI -> reply: "${aiParsedResponse.reply}" | setAlarm: ${aiParsedResponse.setAlarm} (${aiParsedResponse.alarmTime}) | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
+        `🤖 AI -> reply: "${aiParsedResponse.reply}" | alarms: ${JSON.stringify(aiParsedResponse.alarms)} | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
       );
 
       return aiParsedResponse;
