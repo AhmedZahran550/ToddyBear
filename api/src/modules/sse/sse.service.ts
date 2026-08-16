@@ -1,4 +1,10 @@
-import { Injectable, Logger, MessageEvent, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  MessageEvent,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { Observable, Subject } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { DevicesService } from '../devices/devices.service';
@@ -19,72 +25,68 @@ export class SseService {
     private readonly devicesService: DevicesService,
   ) {}
 
-  getStream(macAddress: string): Observable<MessageEvent> {
-    const key = macAddress.toUpperCase().trim();
-
+  getStream(id: string): Observable<MessageEvent> {
     // If an existing stream exists for this device, complete it first
-    if (this.streams.has(key)) {
-      const oldSubject = this.streams.get(key);
+    if (this.streams.has(id)) {
+      const oldSubject = this.streams.get(id);
       try {
         oldSubject?.complete();
       } catch {}
-      this.streams.delete(key);
+      this.streams.delete(id);
     }
 
     const subject = new Subject<MessageEvent>();
-    this.streams.set(key, subject);
+    this.streams.set(id, subject);
 
     // Update device status to online
-    this.devicesService.setOnlineStatus(key, true);
+    this.devicesService.setOnlineStatus(id, true);
     this.logger.log(
-      `🔌 Device connected: ${key} (Active SSE connections: ${this.streams.size})`,
+      `🔌 Device connected: ${id} (Active SSE connections: ${this.streams.size})`,
     );
 
     return subject.asObservable().pipe(
       finalize(() => {
-        this.removeStream(key);
+        this.removeStream(id);
       }),
     );
   }
 
-  removeStream(macAddress: string): void {
-    const key = macAddress.toUpperCase().trim();
-    const subject = this.streams.get(key);
+  removeStream(id: string): void {
+    const subject = this.streams.get(id);
 
     if (subject) {
       try {
         subject.complete();
       } catch {}
-      this.streams.delete(key);
+      this.streams.delete(id);
 
       // Update device status to offline
-      this.devicesService.setOnlineStatus(key, false);
+      this.devicesService.setOnlineStatus(id, false);
       this.logger.log(
-        `❌ Device disconnected: ${key} (Active SSE connections: ${this.streams.size})`,
+        `❌ Device disconnected: ${id} (Active SSE connections: ${this.streams.size})`,
       );
     }
   }
 
-  pushEvent(macAddress: string, data: any): void {
-    const key = macAddress.toUpperCase().trim();
-    const subject = this.streams.get(key);
+  pushEvent(id: string, data: any): void {
+    const subject = this.streams.get(id);
     if (subject && !subject.closed) {
       subject.next({ data: JSON.stringify(data) } as MessageEvent);
     }
   }
 
-  notifyPendingAudio(macAddress: string): void {
-    this.pushEvent(macAddress, { type: 'pending_audio' });
+  notifyPendingAudio(id: string): void {
+    this.pushEvent(id, { type: 'pending_audio' });
   }
 
   notifyAlarm(
-    macAddress: string,
+    id: string,
     alarmIdOrPayload: string | AlarmNotificationPayload,
   ): void {
     if (typeof alarmIdOrPayload === 'string') {
-      this.pushEvent(macAddress, { type: 'alarm', alarmId: alarmIdOrPayload });
+      this.pushEvent(id, { type: 'alarm', alarmId: alarmIdOrPayload });
     } else {
-      this.pushEvent(macAddress, {
+      this.pushEvent(id, {
         type: 'alarm',
         ...alarmIdOrPayload,
       });

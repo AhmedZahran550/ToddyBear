@@ -20,8 +20,8 @@ export class AlarmsScheduler {
       const mm = String(now.getMinutes()).padStart(2, '0');
       const currentHM = `${hh}:${mm}`;
       const today = now.toISOString().split('T')[0];
-
       const dueAlarms = await this.alarmsService.findDueAlarms(currentHM);
+      console.log(dueAlarms);
 
       for (const alarm of dueAlarms) {
         if (alarm.lastTriggeredDate === today) {
@@ -42,11 +42,11 @@ export class AlarmsScheduler {
         };
 
         // If alarm has a specific targeted device
-        if (alarm.device && alarm.device.macAddress) {
+        if (alarm.device && alarm.device.id) {
           this.logger.log(
-            `⏰ Triggering alarm ${alarm.id} (${alarm.time}) for device ${alarm.device.macAddress} (ringtone: ${alarm.ringtone?.name || 'none'})`,
+            `⏰ Triggering alarm ${alarm.id} (${alarm.time}) for device ${alarm.device.id} (ringtone: ${alarm.ringtone?.name || 'none'})`,
           );
-          this.sseService.notifyAlarm(alarm.device.macAddress, payload);
+          this.sseService.notifyAlarm(alarm.device.id, payload);
         } else if (
           alarm.user &&
           alarm.user.devices &&
@@ -54,11 +54,11 @@ export class AlarmsScheduler {
         ) {
           // Otherwise trigger for all devices registered to the user
           for (const dev of alarm.user.devices) {
-            if (dev.macAddress) {
+            if (dev.id) {
               this.logger.log(
-                `⏰ Triggering alarm ${alarm.id} (${alarm.time}) for user's device ${dev.macAddress}`,
+                `⏰ Triggering alarm ${alarm.id} (${alarm.time}) for user's device ${dev.id}`,
               );
-              this.sseService.notifyAlarm(dev.macAddress, payload);
+              this.sseService.notifyAlarm(dev.id, payload);
             }
           }
         }
