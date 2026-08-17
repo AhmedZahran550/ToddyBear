@@ -33,9 +33,7 @@ export class AlarmsScheduler {
           enabled: false,
         });
 
-        const ringtoneDownloadUrl = alarm.ringtoneId
-          ? `/api/ringtones/${alarm.ringtoneId}/download`
-          : null;
+        const ringtoneDownloadUrl = `/api/alarms/${alarm.id}/ringtone`;
 
         const payload = {
           alarmId: alarm.id,

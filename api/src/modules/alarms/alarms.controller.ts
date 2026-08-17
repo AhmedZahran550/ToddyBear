@@ -7,7 +7,9 @@ import {
   Param,
   Delete,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AlarmsService } from './alarms.service';
 import { CreateAlarmDto } from './dto/create-alarm.dto';
 import { UpdateAlarmDto } from './dto/update-alarm.dto';
@@ -19,6 +21,7 @@ import {
   ApiFindOneAlarmDocs,
   ApiUpdateAlarmDocs,
   ApiRemoveAlarmDocs,
+  ApiGetAlarmRingtoneDocs,
 } from '../../swagger/alarms.swagger';
 
 @ApiAlarmsDocs()
@@ -63,5 +66,17 @@ export class AlarmsController {
   @Delete('alarms/:id')
   remove(@Param('id') id: string) {
     return this.alarmsService.remove(id);
+  }
+
+  @ApiGetAlarmRingtoneDocs()
+  @Get('alarms/:id/ringtone')
+  async getAlarmRingtone(@Param('id') id: string, @Res() res: Response) {
+    const { buffer, contentType, filename } =
+      await this.alarmsService.getAlarmRingtone(id);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.status(200).send(buffer);
   }
 }

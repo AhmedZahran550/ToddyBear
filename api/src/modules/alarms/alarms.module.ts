@@ -5,9 +5,14 @@ import { AlarmsService } from './alarms.service';
 import { AlarmsController } from './alarms.controller';
 import { AlarmsScheduler } from './alarms.scheduler';
 import { SseModule } from '../sse/sse.module';
+import { CloudStorageModule } from '../cloud-storage/cloud-storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Alarm]), SseModule],
+  imports: [
+    TypeOrmModule.forFeature([Alarm]),
+    SseModule,
+    CloudStorageModule,
+  ],
   controllers: [AlarmsController],
   providers: [AlarmsService, AlarmsScheduler],
   exports: [AlarmsService],

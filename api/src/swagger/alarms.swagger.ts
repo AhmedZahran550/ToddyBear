@@ -100,3 +100,24 @@ export function ApiRemoveAlarmDocs() {
     ApiResponse({ status: 404, description: 'Alarm not found.' }),
   );
 }
+
+export function ApiGetAlarmRingtoneDocs() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Get Alarm Ringtone Audio',
+      description:
+        'Retrieves the audio file stream for an alarm. If custom ringtone is set on the alarm, downloads from cloud storage; otherwise serves default music.wav.',
+    }),
+    ApiParam({
+      name: 'id',
+      description: 'Alarm UUID',
+      example: '3a4b5c6d-7e8f-9a0b-1c2d-3e4f5a6b7c8d',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Audio file stream (WAV/MP3).',
+    }),
+    ApiResponse({ status: 404, description: 'Alarm or audio file not found.' }),
+  );
+}
+
