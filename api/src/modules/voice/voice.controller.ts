@@ -14,7 +14,7 @@ import {
 import type { Request, Response } from 'express';
 import { SttService } from './stt.service';
 import { TtsService } from './tts.service';
-import { AiService } from './ai.service';
+import { AiService, AiProvider } from './ai.service';
 import { AlarmsService } from '../alarms/alarms.service';
 import { MessagePlaceholderService } from './message-placeholder.service';
 import { DevicesService } from '../devices/devices.service';
@@ -29,6 +29,8 @@ import {
   ApiVoicePushPendingDocs,
   ApiGetSttProviderDocs,
   ApiSetSttProviderDocs,
+  ApiGetAiProviderDocs,
+  ApiSetAiProviderDocs,
 } from '../../swagger/voice.swagger';
 
 @ApiVoiceDocs()
@@ -204,5 +206,29 @@ export class VoiceController {
       throw new BadRequestException("STT provider must be 'groq' or 'google'");
     }
     return { ok: true, provider };
+  }
+
+  @ApiGetAiProviderDocs()
+  @Get('ai-provider')
+  getAiProvider() {
+    return this.aiService.getProviderInfo();
+  }
+
+  @ApiSetAiProviderDocs()
+  @Post('ai-provider')
+  setAiProvider(
+    @Body() body: { provider: AiProvider; model?: string },
+  ) {
+    if (!body?.provider) {
+      throw new BadRequestException('provider is required');
+    }
+    const ok = this.aiService.setProvider(body.provider, body.model);
+    if (!ok) {
+      throw new BadRequestException("AI provider must be 'gemini' or 'groq'");
+    }
+    return {
+      ok: true,
+      providerInfo: this.aiService.getProviderInfo(),
+    };
   }
 }

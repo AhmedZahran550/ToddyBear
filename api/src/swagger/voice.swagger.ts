@@ -132,3 +132,81 @@ export function ApiSetSttProviderDocs() {
     ApiResponse({ status: 400, description: 'Provider must be "groq" or "google"' }),
   );
 }
+
+export function ApiGetAiProviderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'Get Current AI Provider Info',
+      description:
+        'Returns the currently active AI provider, active model, and configured provider options.',
+    }),
+    ApiResponse({
+      status: 200,
+      schema: {
+        type: 'object',
+        properties: {
+          activeProvider: { type: 'string', example: 'gemini' },
+          activeModel: { type: 'string', example: 'gemini-3.6-flash' },
+          geminiModel: { type: 'string', example: 'gemini-3.6-flash' },
+          groqModel: { type: 'string', example: 'openai/gpt-oss-20b' },
+          availableProviders: {
+            type: 'array',
+            items: { type: 'string' },
+            example: ['gemini', 'groq'],
+          },
+        },
+      },
+    }),
+  );
+}
+
+export function ApiSetAiProviderDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'Set Active AI Provider and Model',
+      description:
+        'Switches the active AI provider (gemini / groq) and optionally sets custom model name.',
+    }),
+    ApiBody({
+      schema: {
+        type: 'object',
+        properties: {
+          provider: {
+            type: 'string',
+            enum: ['gemini', 'groq'],
+            example: 'gemini',
+          },
+          model: {
+            type: 'string',
+            example: 'gemini-2.5-flash',
+            description: 'Optional model override for the selected provider',
+          },
+        },
+        required: ['provider'],
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      schema: {
+        type: 'object',
+        properties: {
+          ok: { type: 'boolean', example: true },
+          providerInfo: {
+            type: 'object',
+            properties: {
+              activeProvider: { type: 'string', example: 'gemini' },
+              activeModel: { type: 'string', example: 'gemini-2.5-flash' },
+            },
+          },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'Provider must be "gemini" or "groq"',
+    }),
+  );
+}
+
