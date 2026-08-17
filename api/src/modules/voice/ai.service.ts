@@ -14,6 +14,7 @@ export interface AlarmAction {
 export interface AiResponse {
   reply: string;
   alarms: AlarmAction[];
+  clearAllAlarms: boolean;
   sendMessage: boolean;
   messageTo: string | null;
   messageContent: string | null;
@@ -107,6 +108,7 @@ You MUST ALWAYS respond strictly with a valid JSON object matching this schema:
       "label": "<short label string if alarm has a purpose, otherwise null>"
     }
   ],
+  "clearAllAlarms": <boolean true/false>,
   "sendMessage": <boolean true/false>,
   "messageTo": "<recipient name string if sendMessage is true, otherwise null>",
   "messageContent": "<the text of the message if sendMessage is true, otherwise null>"
@@ -116,8 +118,9 @@ Action Rules:
 1. "alarms": An array of alarm actions. Return an empty array [] if no alarm operation is requested.
    - For each alarm the user wants to set, add an entry: {"action": "set", "time": "HH:MM", "label": "<optional label or null>"} in 24-hour format "HH:MM" (e.g. "07:30" or "20:00"). If the user asks to set multiple alarms (e.g. "set alarm for 7:00 and 8:30"), include each in the array. If no time is specified yet, ask for the time in "reply" and return [].
    - For each alarm the user wants to disable / cancel / delete / stop (e.g. "cancel my 7:30 alarm", "turn off the 8 o'clock alarm", "disable alarms at 7 and 8"), add an entry: {"action": "disable", "time": "HH:MM", "label": null}.
-2. "sendMessage": Set to true IF AND ONLY IF the user asks to send a message to someone (e.g. dad, mom, parent). Extract recipient name into "messageTo" and message text into "messageContent".
-3. For standard conversation with no alarm or message request, return "alarms": [] and "sendMessage": false.
+2. "clearAllAlarms": Set to true IF AND ONLY IF the user explicitly asks to clear, delete, remove, cancel, or stop ALL their alarms (e.g. "clear all alarms", "delete all my alarms", "cancel all alarms", "مسح كل المنبهات", "احذف كل المنبهات"). Otherwise set to false.
+3. "sendMessage": Set to true IF AND ONLY IF the user asks to send a message to someone (e.g. dad, mom, parent). Extract recipient name into "messageTo" and message text into "messageContent".
+4. For standard conversation with no alarm or message request, return "alarms": [], "clearAllAlarms": false, and "sendMessage": false.
 
 ${datetimeText}`;
   }
@@ -126,6 +129,7 @@ ${datetimeText}`;
     const fallback: AiResponse = {
       reply: raw || 'معذرة، لم أستطع إجابة سؤالك الآن.',
       alarms: [],
+      clearAllAlarms: false,
       sendMessage: false,
       messageTo: null,
       messageContent: null,
@@ -175,6 +179,7 @@ ${datetimeText}`;
       return {
         reply: typeof parsed.reply === 'string' ? parsed.reply : fallback.reply,
         alarms,
+        clearAllAlarms: Boolean(parsed.clearAllAlarms),
         sendMessage: Boolean(parsed.sendMessage),
         messageTo:
           typeof parsed.messageTo === 'string' ? parsed.messageTo : null,
@@ -213,6 +218,7 @@ ${datetimeText}`;
     const errorFallback: AiResponse = {
       reply: 'معذرة، نواجه مشكلة في الخدمة حالياً.',
       alarms: [],
+      clearAllAlarms: false,
       sendMessage: false,
       messageTo: null,
       messageContent: null,
@@ -305,7 +311,7 @@ ${datetimeText}`;
         );
 
       this.logger.log(
-        `🤖 AI -> reply: "${aiParsedResponse.reply}" | alarms: ${JSON.stringify(aiParsedResponse.alarms)} | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
+        `🤖 AI -> reply: "${aiParsedResponse.reply}" | alarms: ${JSON.stringify(aiParsedResponse.alarms)} | clearAllAlarms: ${aiParsedResponse.clearAllAlarms} | sendMessage: ${aiParsedResponse.sendMessage} (${aiParsedResponse.messageTo})`,
       );
 
       return aiParsedResponse;

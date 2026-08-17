@@ -45,6 +45,11 @@ export class AlarmsService extends DatabaseService<Alarm> {
     return result.affected || 0;
   }
 
+  async deleteAllByUser(userId: string): Promise<number> {
+    const result = await this.alarmRepo.delete({ userId });
+    return result.affected || 0;
+  }
+
   async getAlarmRingtone(
     id: string,
   ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {

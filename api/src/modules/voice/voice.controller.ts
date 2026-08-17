@@ -89,6 +89,18 @@ export class VoiceController {
       userPayload,
     );
 
+    // Handle clearing all alarms flag from AI response
+    if (aiResponse.clearAllAlarms && userId) {
+      try {
+        const count = await this.alarmsService.deleteAllByUser(userId);
+        this.logger.log(
+          `🗑️ All alarms cleared via AI for user ${userId} (${count} deleted)`,
+        );
+      } catch (err) {
+        this.logger.error(`Failed to clear all alarms via AI: ${err.message}`);
+      }
+    }
+
     // Handle alarm actions from AI response
     if (aiResponse.alarms && aiResponse.alarms.length > 0 && userId) {
       for (const alarm of aiResponse.alarms) {
