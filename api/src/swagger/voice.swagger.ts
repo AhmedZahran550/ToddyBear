@@ -210,3 +210,66 @@ export function ApiSetAiProviderDocs() {
   );
 }
 
+export function ApiVoiceStreamDocs() {
+  return applyDecorators(
+    ApiBearerAuth('bearer-auth'),
+    ApiOperation({
+      summary: 'WebSocket Voice Streaming Protocol & Specification',
+      description: `
+### Real-Time Overlapped Voice Streaming Architecture (\`ws://host:port/voice-stream\`)
+
+This endpoint documents the high-performance WebSocket streaming pipeline designed for embedded hardware devices (e.g., ToddyBear smart assistant).
+
+#### 1. Connection & Authentication
+- **Transport**: Standard WebSocket (\`ws://\` or \`wss://\`) on path \`/voice-stream\`
+- **Auth Query Param**: \`ws://host:port/voice-stream?token=<DEVICE_JWT_TOKEN>\`
+- **Auth Header Alternative**: \`Authorization: Bearer <DEVICE_JWT_TOKEN>\`
+
+---
+
+#### 2. Audio Format Specification
+- **Audio Encoding**: \`pcm_s16le\` (Raw 16-bit signed integer, Little-Endian)
+- **Sample Rate**: \`16000\` Hz (16 kHz)
+- **Channels**: \`1\` (Mono)
+- **Framing**: Raw PCM audio bytes without per-chunk WAV headers. For streaming playback, the device hardware directly streams incoming binary chunks into the I2S/DAC audio ring buffer.
+
+---
+
+#### 3. Client \u2192 Server Messages
+
+| Event / Payload | Type | Description |
+|---|---|---|
+| \`{ "event": "audio_start", "language": "ar", "sampleRate": 16000 }\` | JSON | Initiates a new user utterance session. Prepares streaming STT (Deepgram). |
+| Binary Buffer (\`Buffer\`) | Binary | Raw microphone PCM audio chunks (send ~100-200ms of audio per binary frame). |
+| \`{ "event": "audio_stop" }\` | JSON | Signals that user finished speaking (or microphone button released). |
+| \`{ "event": "ping" }\` | JSON | Heartbeat ping. Server responds with \`{ "event": "pong" }\`. |
+
+---
+
+#### 4. Server \u2192 Client Messages
+
+| Event / Payload | Type | Description |
+|---|---|---|
+| \`{ "event": "connection_ready", "device": {...} }\` | JSON | Sent upon successful JWT handshake. |
+| \`{ "event": "transcript", "text": "...", "isFinal": boolean }\` | JSON | Real-time partial and final transcripts from streaming STT. |
+| \`{ "event": "ai_thinking", "transcript": "..." }\` | JSON | Sent the moment speech ends and LLM generation begins. |
+| \`{ "event": "audio_response_start", "sampleRate": 16000, "encoding": "pcm_s16le" }\` | JSON | Signals that TTS audio chunks are about to be streamed. |
+| Binary Buffer (\`Buffer\`) | Binary | Raw PCM audio stream chunks from Cartesia streaming TTS. Sent in real-time as sentences generate. |
+| \`{ "event": "audio_response_end" }\` | JSON | Signals audio generation and playback stream is complete. |
+| \`{ "event": "error", "stage": "stt|llm|tts|auth", "message": "..." }\` | JSON | Error notifications with stage attribution. |
+
+---
+
+#### 5. Three-Stage Overlapped Latency Pipeline
+1. **Streaming STT**: Deepgram ASR returns partial transcripts and fires end-of-utterance immediately on pause.
+2. **Streaming LLM**: Groq / Gemini SSE completion buffers tokens into sentence units.
+3. **Streaming TTS**: Cartesia WebSocket synthesizes audio sentence-by-sentence and streams PCM back to the device.
+      `,
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'WebSocket protocol specification returned as JSON metadata.',
+    }),
+  );
+}
+

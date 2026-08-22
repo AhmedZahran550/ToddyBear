@@ -11,6 +11,12 @@ import { AlarmsModule } from '../alarms/alarms.module';
 import { ChatsModule } from '../chats/chats.module';
 import { UsageModule } from '../usage/usage.module';
 import { SseModule } from '../sse/sse.module';
+import { AuthModule } from '../auth/auth.module';
+import { StreamingSttService } from './streaming/streaming-stt.service';
+import { StreamingAiService } from './streaming/streaming-ai.service';
+import { StreamingTtsService } from './streaming/streaming-tts.service';
+import { VoiceTelemetryService } from './streaming/voice-telemetry.service';
+import { VoiceStreamGateway } from './streaming/voice-stream.gateway';
 
 @Module({
   imports: [
@@ -19,6 +25,7 @@ import { SseModule } from '../sse/sse.module';
     ChatsModule,
     UsageModule,
     SseModule,
+    AuthModule,
   ],
   controllers: [VoiceController],
   providers: [
@@ -28,6 +35,11 @@ import { SseModule } from '../sse/sse.module';
     AiPromptBuilder,
     AiProviderService,
     MessagePlaceholderService,
+    StreamingSttService,
+    StreamingAiService,
+    StreamingTtsService,
+    VoiceTelemetryService,
+    VoiceStreamGateway,
   ],
   exports: [
     SttService,
@@ -36,6 +48,11 @@ import { SseModule } from '../sse/sse.module';
     AiPromptBuilder,
     AiProviderService,
     MessagePlaceholderService,
+    StreamingSttService,
+    StreamingAiService,
+    StreamingTtsService,
+    VoiceTelemetryService,
+    VoiceStreamGateway,
   ],
 })
 export class VoiceModule {}
