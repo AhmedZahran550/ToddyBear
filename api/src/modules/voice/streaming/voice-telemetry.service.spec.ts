@@ -43,5 +43,36 @@ describe('VoiceTelemetryService', () => {
     const finalized = service.endSession(sessionId);
     expect(finalized).toBeDefined();
     expect(finalized?.totalLatencyMs).toBeGreaterThanOrEqual(0);
+    expect(service.getActiveCount()).toBe(0);
+  });
+
+  it('should reap stale sessions older than MAX_SESSION_AGE_MS', () => {
+    service.onModuleInit();
+    const staleSessionId = 'stale-session';
+    const metrics = service.startSession(staleSessionId);
+
+    // Simulate session created 3 minutes ago
+    metrics.startTime = Date.now() - 180_000;
+
+    // Trigger reaper
+    (service as any).reapStaleSessions();
+
+    expect(service.getActiveCount()).toBe(0);
+    service.onModuleDestroy();
+  });
+
+  it('should evict oldest session when MAX_SESSIONS capacity is reached', () => {
+    // Fill up to max capacity
+    for (let i = 0; i < 500; i++) {
+      service.startSession(`session-${i}`);
+    }
+    expect(service.getActiveCount()).toBe(500);
+
+    // Adding 501th should evict the first
+    service.startSession('session-500');
+    expect(service.getActiveCount()).toBe(500);
+    expect(service.endSession('session-0')).toBeUndefined();
+    expect(service.endSession('session-500')).toBeDefined();
   });
 });
+

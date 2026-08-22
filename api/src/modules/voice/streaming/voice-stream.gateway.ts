@@ -24,6 +24,8 @@ interface AuthenticatedWebSocket extends WebSocket {
   currentSessionId?: string | null;
   isProcessingAi?: boolean;
   pipelineTriggered?: boolean;
+  abortController?: AbortController | null;
+  audioStopTimeout?: NodeJS.Timeout | null;
 }
 
 @WebSocketGateway({
@@ -83,6 +85,8 @@ export class VoiceStreamGateway
       client.currentSessionId = null;
       client.isProcessingAi = false;
       client.pipelineTriggered = false;
+      client.abortController = null;
+      client.audioStopTimeout = null;
 
       // Update online status in background
       if (payload.macAddress) {
@@ -122,6 +126,16 @@ export class VoiceStreamGateway
       if (client.device.macAddress) {
         this.devicesService.setOnlineStatus(client.device.macAddress, false).catch(() => {});
       }
+    }
+
+    if (client.audioStopTimeout) {
+      clearTimeout(client.audioStopTimeout);
+      client.audioStopTimeout = null;
+    }
+
+    if (client.abortController) {
+      client.abortController.abort();
+      client.abortController = null;
     }
 
     if (client.sttSession) {
@@ -175,6 +189,28 @@ export class VoiceStreamGateway
   }
 
   private handleAudioStart(client: AuthenticatedWebSocket, msg: any) {
+    // Concurrency guard: reject if AI is already processing a response for this socket
+    if (client.isProcessingAi) {
+      this.logger.warn(`⚠️ audio_start ignored: Socket is currently processing AI response`);
+      this.sendJson(client, {
+        event: 'busy',
+        message: 'AI response is currently being synthesized. Please wait.',
+      });
+      return;
+    }
+
+    // Clear any pending audio_stop timer
+    if (client.audioStopTimeout) {
+      clearTimeout(client.audioStopTimeout);
+      client.audioStopTimeout = null;
+    }
+
+    // Abort previous in-flight operations if any
+    if (client.abortController) {
+      client.abortController.abort();
+    }
+    client.abortController = new AbortController();
+
     // Close existing STT session if any
     if (client.sttSession) {
       client.sttSession.close();
@@ -257,8 +293,17 @@ export class VoiceStreamGateway
 
     sttSession.finalize();
 
+    if (client.audioStopTimeout) {
+      clearTimeout(client.audioStopTimeout);
+    }
+
     // Give Deepgram 400ms to return final transcripts if utterance_end didn't fire yet
-    setTimeout(() => {
+    client.audioStopTimeout = setTimeout(() => {
+      client.audioStopTimeout = null;
+
+      // Disconnect safety check
+      if (client.readyState !== WebSocket.OPEN) return;
+
       if (!client.pipelineTriggered) {
         const fullTranscript = sttSession.getFullTranscript();
         if (fullTranscript.trim().length > 0) {
@@ -303,12 +348,19 @@ export class VoiceStreamGateway
         userText,
         userPayload,
         () => this.telemetryService.markLlmFirstToken(sessionId),
+        client.abortController?.signal,
       );
 
       let firstSentenceReceived = false;
       const ttsPromises: Promise<void>[] = [];
 
       for await (const aiEvent of aiStream) {
+        // Abort guard if socket closed or cancelled mid-stream
+        if (client.readyState !== WebSocket.OPEN || client.abortController?.signal.aborted) {
+          this.logger.log(`Pipeline aborted for session ${sessionId}`);
+          break;
+        }
+
         if (aiEvent.type === 'sentence') {
           const sentence = aiEvent.text;
           const sentenceIdx = aiEvent.index;
@@ -344,16 +396,20 @@ export class VoiceStreamGateway
 
       await Promise.all(ttsPromises);
 
-      // Signal completion to device
-      this.sendJson(client, { event: 'audio_response_end' });
+      // Signal completion to device if socket is still open
+      if (client.readyState === WebSocket.OPEN && !client.abortController?.signal.aborted) {
+        this.sendJson(client, { event: 'audio_response_end' });
+      }
       this.telemetryService.markTtsEnd(sessionId);
     } catch (err) {
-      this.logger.error(`Pipeline execution failed: ${err.message}`);
-      this.sendJson(client, {
-        event: 'error',
-        stage: 'pipeline',
-        message: 'AI assistant pipeline failure',
-      });
+      if (!client.abortController?.signal.aborted) {
+        this.logger.error(`Pipeline execution failed: ${err.message}`);
+        this.sendJson(client, {
+          event: 'error',
+          stage: 'pipeline',
+          message: 'AI assistant pipeline failure',
+        });
+      }
     } finally {
       this.telemetryService.endSession(sessionId);
       client.isProcessingAi = false;

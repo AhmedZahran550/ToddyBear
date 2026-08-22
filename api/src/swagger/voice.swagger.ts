@@ -246,17 +246,20 @@ This endpoint documents the high-performance WebSocket streaming pipeline design
 
 ---
 
-#### 4. Server \u2192 Client Messages
+#### 4. Server → Client Messages
 
 | Event / Payload | Type | Description |
 |---|---|---|
 | \`{ "event": "connection_ready", "device": {...} }\` | JSON | Sent upon successful JWT handshake. |
+| \`{ "event": "audio_started", "sessionId": "...", "sampleRate": 16000 }\` | JSON | Confirms STT session is initialized and ready for binary PCM audio. |
 | \`{ "event": "transcript", "text": "...", "isFinal": boolean }\` | JSON | Real-time partial and final transcripts from streaming STT. |
 | \`{ "event": "ai_thinking", "transcript": "..." }\` | JSON | Sent the moment speech ends and LLM generation begins. |
-| \`{ "event": "audio_response_start", "sampleRate": 16000, "encoding": "pcm_s16le" }\` | JSON | Signals that TTS audio chunks are about to be streamed. |
+| \`{ "event": "audio_response_start", "sampleRate": 16000, "encoding": "pcm_s16le", "format": "raw_pcm" }\` | JSON | Signals that TTS audio chunks are about to be streamed. |
 | Binary Buffer (\`Buffer\`) | Binary | Raw PCM audio stream chunks from Cartesia streaming TTS. Sent in real-time as sentences generate. |
 | \`{ "event": "audio_response_end" }\` | JSON | Signals audio generation and playback stream is complete. |
-| \`{ "event": "error", "stage": "stt|llm|tts|auth", "message": "..." }\` | JSON | Error notifications with stage attribution. |
+| \`{ "event": "silence_detected" }\` | JSON | Sent when \`audio_stop\` completes but no speech was transcribed. |
+| \`{ "event": "busy", "message": "..." }\` | JSON | Sent if an \`audio_start\` is received while a previous AI response is still generating. |
+| \`{ "event": "error", "stage": "stt|llm|tts|auth|pipeline", "message": "..." }\` | JSON | Error notifications with stage attribution. |
 
 ---
 
@@ -264,6 +267,15 @@ This endpoint documents the high-performance WebSocket streaming pipeline design
 1. **Streaming STT**: Deepgram ASR returns partial transcripts and fires end-of-utterance immediately on pause.
 2. **Streaming LLM**: Groq / Gemini SSE completion buffers tokens into sentence units.
 3. **Streaming TTS**: Cartesia WebSocket synthesizes audio sentence-by-sentence and streams PCM back to the device.
+
+---
+
+#### 6. Server Memory Optimization & Safety Safeguards
+- **TTL Telemetry Reaper**: Automatic 60s reaper evicts orphaned/stale telemetry sessions (>120s) to prevent memory leaks from dropped connections.
+- **Context Safety Timeouts**: Cartesia TTS contexts auto-expire after 30s to prevent hanging emitters if upstream connections drop.
+- **Byte-Budget Cache**: In-memory TTS phrase cache is strictly capped at 10 MB with byte-aware LRU eviction.
+- **AbortController Teardown**: Client disconnects immediately trigger abort signals that terminate upstream AI/TTS streams and free Node.js buffer allocations.
+- **Concurrency Rejection**: Active AI generation locks prevent duplicate or overlapping processing pipelines on the same socket.
       `,
     }),
     ApiResponse({

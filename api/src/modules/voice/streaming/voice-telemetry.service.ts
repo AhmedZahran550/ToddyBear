@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 
 export interface VoiceSessionMetrics {
   sessionId: string;
@@ -25,11 +25,56 @@ export interface VoiceSessionMetrics {
 }
 
 @Injectable()
-export class VoiceTelemetryService {
+export class VoiceTelemetryService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(VoiceTelemetryService.name);
   private sessions = new Map<string, VoiceSessionMetrics>();
+  private reaperInterval: NodeJS.Timeout | null = null;
+
+  private readonly MAX_SESSION_AGE_MS = 120_000; // 2 minutes max session lifetime
+  private readonly MAX_SESSIONS = 500; // Hard limit to prevent memory exhaustion
+
+  onModuleInit() {
+    this.reaperInterval = setInterval(() => this.reapStaleSessions(), 60_000);
+  }
+
+  onModuleDestroy() {
+    if (this.reaperInterval) {
+      clearInterval(this.reaperInterval);
+      this.reaperInterval = null;
+    }
+    this.sessions.clear();
+  }
+
+  getActiveCount(): number {
+    return this.sessions.size;
+  }
+
+  private reapStaleSessions(): void {
+    const now = Date.now();
+    let reaped = 0;
+
+    for (const [id, metrics] of this.sessions.entries()) {
+      if (now - metrics.startTime > this.MAX_SESSION_AGE_MS) {
+        this.sessions.delete(id);
+        reaped++;
+      }
+    }
+
+    if (reaped > 0) {
+      this.logger.warn(`🧹 Telemetry Reaper: Evicted ${reaped} orphaned/stale session(s). Active: ${this.sessions.size}`);
+    }
+  }
 
   startSession(sessionId: string, deviceId?: string, userId?: string): VoiceSessionMetrics {
+    // If capacity reached, evict oldest session
+    if (this.sessions.size >= this.MAX_SESSIONS) {
+      const oldestKey = this.sessions.keys().next().value;
+      if (oldestKey) {
+        this.sessions.delete(oldestKey);
+        this.logger.warn(`⚠️ Max telemetry session capacity reached (${this.MAX_SESSIONS}). Evicted oldest session.`);
+      }
+    }
+
     const now = Date.now();
     const metrics: VoiceSessionMetrics = {
       sessionId,

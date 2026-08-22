@@ -24,6 +24,7 @@ export class StreamingSttSession extends EventEmitter {
     private readonly logger: Logger,
   ) {
     super();
+    this.setMaxListeners(20);
     this.connect();
   }
 
@@ -157,17 +158,20 @@ export class StreamingSttSession extends EventEmitter {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
-    if (this.ws) {
+    const currentWs = this.ws;
+    this.ws = null;
+    if (currentWs) {
       try {
-        if (this.ws.readyState === WebSocket.OPEN) {
-          this.ws.send(JSON.stringify({ type: 'CloseStream' }));
+        if (currentWs.readyState === WebSocket.OPEN) {
+          currentWs.send(JSON.stringify({ type: 'CloseStream' }));
         }
-        this.ws.close();
+        currentWs.close();
       } catch (err) {
         // ignore close error
       }
-      this.ws = null;
     }
+    this.accumulatedFinalText = '';
+    this.lastPartialText = '';
     this.removeAllListeners();
   }
 }

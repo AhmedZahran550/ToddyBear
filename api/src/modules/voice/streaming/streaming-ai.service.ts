@@ -38,6 +38,7 @@ export class StreamingAiService {
     userText: string,
     user?: UserProfile | null,
     onFirstToken?: () => void,
+    signal?: AbortSignal,
   ): AsyncGenerator<StreamingAiEvent, void, unknown> {
     const userId =
       (user as any)?.type === 'device'
@@ -64,15 +65,17 @@ export class StreamingAiService {
     let usedProvider: AiProvider = primaryProvider;
 
     try {
-      tokenStream = await this.createTokenStream(primaryProvider, systemPrompt, history, userText);
+      tokenStream = await this.createTokenStream(primaryProvider, systemPrompt, history, userText, signal);
     } catch (primaryErr) {
+      if (signal?.aborted) return;
       this.logger.warn(
         `⚠️ Primary stream (${primaryProvider}) failed: ${primaryErr.message}. Falling back to ${fallbackProvider}...`,
       );
       try {
-        tokenStream = await this.createTokenStream(fallbackProvider, systemPrompt, history, userText);
+        tokenStream = await this.createTokenStream(fallbackProvider, systemPrompt, history, userText, signal);
         usedProvider = fallbackProvider;
       } catch (fallbackErr) {
+        if (signal?.aborted) return;
         this.logger.error(`❌ Both streaming AI providers failed: ${fallbackErr.message}`);
         const fallbackResp = this.promptBuilder.getErrorFallbackResponse();
         yield { type: 'sentence', text: fallbackResp.reply, index: 0 };
@@ -87,6 +90,11 @@ export class StreamingAiService {
     let firstTokenNotified = false;
 
     for await (const token of tokenStream) {
+      if (signal?.aborted) {
+        this.logger.log('🛑 AI token stream aborted by client disconnect');
+        return;
+      }
+
       if (!firstTokenNotified && token.trim().length > 0) {
         firstTokenNotified = true;
         if (onFirstToken) onFirstToken();
@@ -100,6 +108,8 @@ export class StreamingAiService {
         yield { type: 'sentence', text: sentence, index: sentenceIndex++ };
       }
     }
+
+    if (signal?.aborted) return;
 
     // Flush any remaining buffered reply text
     const finalSentence = replyExtractor.flush();
@@ -143,11 +153,12 @@ export class StreamingAiService {
     systemPrompt: string,
     history: any[],
     userText: string,
+    signal?: AbortSignal,
   ): Promise<AsyncIterable<string>> {
     if (provider === 'groq') {
-      return this.createGroqStream(systemPrompt, history, userText);
+      return this.createGroqStream(systemPrompt, history, userText, signal);
     } else {
-      return this.createGeminiStream(systemPrompt, history, userText);
+      return this.createGeminiStream(systemPrompt, history, userText, signal);
     }
   }
 
@@ -155,6 +166,7 @@ export class StreamingAiService {
     systemPrompt: string,
     history: any[],
     userText: string,
+    signal?: AbortSignal,
   ): Promise<AsyncIterable<string>> {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
     const model = this.configService.get<string>('GROQ_MODEL', 'openai/gpt-oss-20b');
@@ -189,16 +201,18 @@ export class StreamingAiService {
         },
         responseType: 'stream',
         timeout: 20000,
+        signal,
       },
     );
 
-    return this.parseOpenAiSseStream(response.data);
+    return this.parseOpenAiSseStream(response.data, signal);
   }
 
   private async createGeminiStream(
     systemPrompt: string,
     history: any[],
     userText: string,
+    signal?: AbortSignal,
   ): Promise<AsyncIterable<string>> {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     const model = this.configService.get<string>('GEMINI_MODEL', 'gemini-3.6-flash');
@@ -236,55 +250,76 @@ export class StreamingAiService {
         headers: { 'Content-Type': 'application/json' },
         responseType: 'stream',
         timeout: 20000,
+        signal,
       },
     );
 
-    return this.parseGeminiSseStream(response.data);
+    return this.parseGeminiSseStream(response.data, signal);
   }
 
-  private async *parseOpenAiSseStream(stream: Readable): AsyncIterable<string> {
+  private async *parseOpenAiSseStream(stream: Readable, signal?: AbortSignal): AsyncIterable<string> {
     let buffer = '';
-    for await (const chunk of stream) {
-      buffer += chunk.toString('utf8');
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) continue;
-        const dataStr = trimmed.replace(/^data:\s*/, '');
-        if (dataStr === '[DONE]') return;
-
-        try {
-          const json = JSON.parse(dataStr);
-          const delta = json.choices?.[0]?.delta?.content;
-          if (delta) yield delta;
-        } catch {
-          // ignore incomplete lines
+    try {
+      for await (const chunk of stream) {
+        if (signal?.aborted) {
+          stream.destroy();
+          return;
         }
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
+          const dataStr = trimmed.replace(/^data:\s*/, '');
+          if (dataStr === '[DONE]') return;
+
+          try {
+            const json = JSON.parse(dataStr);
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) yield delta;
+          } catch {
+            // ignore incomplete lines
+          }
+        }
+      }
+    } finally {
+      if (signal?.aborted && !stream.destroyed) {
+        stream.destroy();
       }
     }
   }
 
-  private async *parseGeminiSseStream(stream: Readable): AsyncIterable<string> {
+  private async *parseGeminiSseStream(stream: Readable, signal?: AbortSignal): AsyncIterable<string> {
     let buffer = '';
-    for await (const chunk of stream) {
-      buffer += chunk.toString('utf8');
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data:')) continue;
-        const dataStr = trimmed.replace(/^data:\s*/, '');
-
-        try {
-          const json = JSON.parse(dataStr);
-          const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) yield text;
-        } catch {
-          // ignore incomplete lines
+    try {
+      for await (const chunk of stream) {
+        if (signal?.aborted) {
+          stream.destroy();
+          return;
         }
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith('data:')) continue;
+          const dataStr = trimmed.replace(/^data:\s*/, '');
+
+          try {
+            const json = JSON.parse(dataStr);
+            const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) yield text;
+          } catch {
+            // ignore incomplete lines
+          }
+        }
+      }
+    } finally {
+      if (signal?.aborted && !stream.destroyed) {
+        stream.destroy();
       }
     }
   }

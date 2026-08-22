@@ -17,8 +17,13 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private activeContexts = new Map<string, EventEmitter>();
-  private ttsCache = new Map<string, Buffer>(); // In-memory LRU-like phrase cache
-  private readonly MAX_CACHE_SIZE = 100;
+  private contextTimeouts = new Map<string, NodeJS.Timeout>();
+
+  // In-memory LRU-like phrase cache with byte-budget cap (10 MB limit)
+  private ttsCache = new Map<string, Buffer>();
+  private currentCacheBytes = 0;
+  private readonly MAX_CACHE_BYTES = 10 * 1024 * 1024; // 10 MB limit
+  private readonly CONTEXT_TIMEOUT_MS = 30_000; // 30s safety timeout for pending TTS contexts
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -27,11 +32,17 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy() {
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.cleanupAllContexts('Streaming TTS service destroyed');
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
+    this.ttsCache.clear();
+    this.currentCacheBytes = 0;
   }
 
   private initWebSocket(): void {
@@ -66,13 +77,13 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
           } else if (msg.type === 'done') {
             if (emitter) {
               emitter.emit('done');
-              this.activeContexts.delete(contextId);
+              this.removeContext(contextId);
             }
           } else if (msg.type === 'error') {
             this.logger.error(`Cartesia WS TTS Error for context ${contextId}: ${msg.error}`);
             if (emitter) {
               emitter.emit('error', new Error(msg.error));
-              this.activeContexts.delete(contextId);
+              this.removeContext(contextId);
             }
           }
         } catch (err) {
@@ -86,13 +97,37 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
 
       socket.on('close', () => {
         this.isConnected = false;
-        this.logger.warn('Cartesia TTS WebSocket closed. Reconnecting in 3s...');
+        this.logger.warn('Cartesia TTS WebSocket closed. Cleaning up pending contexts and reconnecting in 3s...');
+        this.cleanupAllContexts('Cartesia WebSocket closed unexpectedly');
         this.reconnectTimer = setTimeout(() => this.initWebSocket(), 3000);
       });
     } catch (err) {
       this.logger.error(`Failed to initialize Cartesia WS: ${err.message}`);
       this.reconnectTimer = setTimeout(() => this.initWebSocket(), 5000);
     }
+  }
+
+  private removeContext(contextId: string): void {
+    const timer = this.contextTimeouts.get(contextId);
+    if (timer) {
+      clearTimeout(timer);
+      this.contextTimeouts.delete(contextId);
+    }
+    this.activeContexts.delete(contextId);
+  }
+
+  private cleanupAllContexts(reason: string): void {
+    for (const [contextId, emitter] of this.activeContexts.entries()) {
+      try {
+        emitter.emit('error', new Error(reason));
+      } catch {
+        // ignore listener errors
+      }
+      const timer = this.contextTimeouts.get(contextId);
+      if (timer) clearTimeout(timer);
+    }
+    this.activeContexts.clear();
+    this.contextTimeouts.clear();
   }
 
   /**
@@ -126,6 +161,19 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
     // If WS is connected, use low-latency persistent connection
     if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.activeContexts.set(contextId, emitter);
+
+      // Register safety timeout to avoid hanging emitters if third-party WS drops message
+      const timeout = setTimeout(() => {
+        if (this.activeContexts.has(contextId)) {
+          this.logger.warn(`⏱️ TTS Context safety timeout (${this.CONTEXT_TIMEOUT_MS}ms) expired for ${contextId}`);
+          const activeEmitter = this.activeContexts.get(contextId);
+          if (activeEmitter) {
+            activeEmitter.emit('done');
+          }
+          this.removeContext(contextId);
+        }
+      }, this.CONTEXT_TIMEOUT_MS);
+      this.contextTimeouts.set(contextId, timeout);
 
       const voiceId =
         options?.voiceId ||
@@ -209,10 +257,26 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
   }
 
   private cacheAudio(text: string, audio: Buffer): void {
-    if (this.ttsCache.size >= this.MAX_CACHE_SIZE) {
-      const firstKey = this.ttsCache.keys().next().value;
-      if (firstKey) this.ttsCache.delete(firstKey);
+    const audioBytes = audio.length;
+    // Don't cache oversized single files
+    if (audioBytes > this.MAX_CACHE_BYTES) return;
+
+    // Evict oldest entries until within byte budget
+    while (
+      this.currentCacheBytes + audioBytes > this.MAX_CACHE_BYTES &&
+      this.ttsCache.size > 0
+    ) {
+      const oldestKey = this.ttsCache.keys().next().value;
+      if (oldestKey) {
+        const oldBuf = this.ttsCache.get(oldestKey);
+        this.currentCacheBytes -= oldBuf?.length || 0;
+        this.ttsCache.delete(oldestKey);
+      } else {
+        break;
+      }
     }
+
     this.ttsCache.set(text, audio);
+    this.currentCacheBytes += audioBytes;
   }
 }
