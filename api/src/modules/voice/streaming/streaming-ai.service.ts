@@ -103,8 +103,8 @@ export class StreamingAiService {
       fullRawAccumulated += token;
       yield { type: 'token', text: token };
 
-      const sentence = replyExtractor.feed(token);
-      if (sentence) {
+      const sentences = replyExtractor.feed(token);
+      for (const sentence of sentences) {
         yield { type: 'sentence', text: sentence, index: sentenceIndex++ };
       }
     }
@@ -190,7 +190,7 @@ export class StreamingAiService {
         model,
         messages,
         temperature: 0.7,
-        max_completion_tokens: 250, // Capped for low latency voice responses
+        max_completion_tokens: 300,
         response_format: { type: 'json_object' },
         stream: true,
       },
@@ -238,7 +238,7 @@ export class StreamingAiService {
       contents,
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 300,
+        maxOutputTokens: 350,
         responseMimeType: 'application/json',
       },
     };
@@ -336,8 +336,8 @@ class StreamingReplyExtractor {
   private sentenceBuffer = '';
   private isEscaped = false;
 
-  feed(token: string): string | null {
-    if (this.pastReplyField) return null;
+  feed(token: string): string[] {
+    if (this.pastReplyField) return [];
 
     this.accumulator += token;
 
@@ -350,14 +350,14 @@ class StreamingReplyExtractor {
         this.accumulator = '';
         return this.processReplyChars(remaining);
       }
-      return null;
+      return [];
     }
 
     return this.processReplyChars(token);
   }
 
-  private processReplyChars(text: string): string | null {
-    let completedSentence: string | null = null;
+  private processReplyChars(text: string): string[] {
+    const completedSentences: string[] = [];
 
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
@@ -377,6 +377,10 @@ class StreamingReplyExtractor {
         // End of reply string in JSON
         this.inReplyField = false;
         this.pastReplyField = true;
+        if (this.sentenceBuffer.trim().length > 0) {
+          completedSentences.push(this.sentenceBuffer.trim());
+          this.sentenceBuffer = '';
+        }
         break;
       }
 
@@ -384,12 +388,12 @@ class StreamingReplyExtractor {
 
       // Sentence boundary detection (Arabic + English punctuation)
       if (this.isSentenceBoundary(char, this.sentenceBuffer)) {
-        completedSentence = this.sentenceBuffer.trim();
+        completedSentences.push(this.sentenceBuffer.trim());
         this.sentenceBuffer = '';
       }
     }
 
-    return completedSentence && completedSentence.length > 0 ? completedSentence : null;
+    return completedSentences;
   }
 
   private isSentenceBoundary(char: string, buffer: string): boolean {

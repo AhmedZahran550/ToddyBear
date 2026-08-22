@@ -84,6 +84,7 @@ export class StreamingSttSession extends EventEmitter {
                 this.accumulatedFinalText = this.accumulatedFinalText
                   ? `${this.accumulatedFinalText} ${transcript}`
                   : transcript;
+                this.lastPartialText = ''; // Clear partial text so it doesn't duplicate
                 this.emit('final', transcript, this.accumulatedFinalText);
               } else {
                 this.lastPartialText = transcript;
@@ -92,11 +93,13 @@ export class StreamingSttSession extends EventEmitter {
             }
 
             if (speechFinal && (this.accumulatedFinalText || this.lastPartialText)) {
+              this.lastPartialText = '';
               const fullText = this.getFullTranscript();
               this.logger.log(`📝 STT speech_final detected -> "${fullText}"`);
               this.emit('utterance_end', fullText);
             }
           } else if (msg.type === 'UtteranceEnd') {
+            this.lastPartialText = '';
             const fullText = this.getFullTranscript();
             if (fullText.length > 0) {
               this.logger.log(`📝 STT UtteranceEnd event -> "${fullText}"`);

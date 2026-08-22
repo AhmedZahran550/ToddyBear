@@ -8,6 +8,7 @@ export interface TtsStreamingOptions {
   voiceId?: string;
   modelId?: string;
   sampleRate?: number;
+  language?: string;
 }
 
 @Injectable()
@@ -185,12 +186,17 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
         options?.modelId ||
         this.configService.get<string>('CARTESIA_MODEL', 'sonic-3.5');
       const sampleRate = options?.sampleRate || 16000;
+      const language =
+        options?.language ||
+        this.configService.get<string>('CARTESIA_LANGUAGE', 'ar') ||
+        'ar';
 
-      const payload = {
+      const payload: any = {
         context_id: contextId,
         model_id: modelId,
         transcript: cleanText,
         voice: { mode: 'id', id: voiceId },
+        language: language,
         output_format: {
           container: 'raw',
           encoding: 'pcm_s16le',
@@ -205,7 +211,7 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
 
     // Fallback: REST HTTP call if WebSocket is unavailable
     this.logger.warn(`Cartesia WS not connected, using REST fallback for: "${cleanText.substring(0, 30)}..."`);
-    this.synthesizeRest(cleanText)
+    this.synthesizeRest(cleanText, options)
       .then((pcmBuffer) => {
         this.cacheAudio(cleanText, pcmBuffer);
         emitter.emit('audio_chunk', pcmBuffer);
@@ -218,13 +224,19 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
     return emitter;
   }
 
-  private async synthesizeRest(text: string): Promise<Buffer> {
+  private async synthesizeRest(text: string, options?: TtsStreamingOptions): Promise<Buffer> {
     const apiKey = this.configService.get<string>('CARTESIA_API_KEY');
-    const model = this.configService.get<string>('CARTESIA_MODEL', 'sonic-3.5');
-    const voiceId = this.configService.get<string>(
-      'CARTESIA_VOICE_ID',
-      '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',
-    );
+    const model = options?.modelId || this.configService.get<string>('CARTESIA_MODEL', 'sonic-3.5');
+    const voiceId =
+      options?.voiceId ||
+      this.configService.get<string>(
+        'CARTESIA_VOICE_ID',
+        '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',
+      );
+    const language =
+      options?.language ||
+      this.configService.get<string>('CARTESIA_LANGUAGE', 'ar') ||
+      'ar';
 
     if (!apiKey) {
       throw new Error('CARTESIA_API_KEY is not configured');
@@ -236,6 +248,7 @@ export class StreamingTtsService implements OnModuleInit, OnModuleDestroy {
         model_id: model,
         transcript: text,
         voice: { mode: 'id', id: voiceId },
+        language: language,
         output_format: {
           container: 'raw',
           encoding: 'pcm_s16le',

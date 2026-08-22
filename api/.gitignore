@@ -34,3 +34,9 @@ Thumbs.db
 # Caches
 .eslintcache
 .cache/
+
+# Local Testing Scripts & Audio Files
+scripts/
+audio/
+audios/
+*.pcm

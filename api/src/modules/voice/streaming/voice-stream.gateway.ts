@@ -26,6 +26,7 @@ interface AuthenticatedWebSocket extends WebSocket {
   pipelineTriggered?: boolean;
   abortController?: AbortController | null;
   audioStopTimeout?: NodeJS.Timeout | null;
+  language?: string;
 }
 
 @WebSocketGateway({
@@ -221,6 +222,7 @@ export class VoiceStreamGateway
     client.currentSessionId = sessionId;
     client.isProcessingAi = false;
     client.pipelineTriggered = false;
+    client.language = msg.language || 'ar';
 
     this.telemetryService.startSession(
       sessionId,
@@ -376,6 +378,12 @@ export class VoiceStreamGateway
             });
           }
 
+          this.sendJson(client, {
+            event: 'ai_response_chunk',
+            text: sentence,
+            index: sentenceIdx,
+          });
+
           // Synthesize sentence via Cartesia streaming WebSocket
           const ttsPromise = this.streamSentenceAudio(
             client,
@@ -431,6 +439,7 @@ export class VoiceStreamGateway
       const ttsEmitter = this.streamingTtsService.synthesizeStream(
         sentenceText,
         contextId,
+        { language: client.language || 'ar' },
       );
 
       ttsEmitter.on('audio_chunk', (chunk: Buffer) => {
