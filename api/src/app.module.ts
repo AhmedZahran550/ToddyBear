@@ -23,6 +23,7 @@ import { ChatsModule } from './modules/chats/chats.module';
 import { UsageModule } from './modules/usage/usage.module';
 import { SseModule } from './modules/sse/sse.module';
 import { VoiceModule } from './modules/voice/voice.module';
+import { GeminiLiveModule } from './modules/gemini-live/gemini-live.module';
 import { CloudStorageModule } from './modules/cloud-storage/cloud-storage.module';
 import { RingtonesModule } from './modules/ringtones/ringtones.module';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -49,6 +50,7 @@ import { DBExceptionFilter } from './common/filters/query-failed-exception.filte
     UsageModule,
     SseModule,
     VoiceModule,
+    GeminiLiveModule,
   ],
   controllers: [AppController],
   providers: [
