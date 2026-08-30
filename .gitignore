@@ -47,3 +47,6 @@ Thumbs.db
 # Caches
 .eslintcache
 .cache/
+
+audio/
+scripts/
