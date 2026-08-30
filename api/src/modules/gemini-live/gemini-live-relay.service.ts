@@ -13,11 +13,28 @@ export class GeminiLiveRelayService {
 
   createGeminiLiveSession(apiKey: string, systemPrompt: string): WebSocket {
     const wsUrl = `wss://${this.HOST}${this.PATH}?key=${apiKey}`;
+    this.logger.log(`🔗 Connecting to Gemini Live API: wss://${this.HOST}${this.PATH}?key=***`);
     const geminiWs = new WebSocket(wsUrl);
 
     geminiWs.on('open', () => {
-      this.logger.log(' Connected to Gemini Multimodal Live API');
+      this.logger.log('🟢 Connected to Gemini Multimodal Live API');
       this.sendHandshakeSetup(geminiWs, systemPrompt);
+    });
+
+    geminiWs.on('error', (err) => {
+      this.logger.error(`❌ Gemini WS connection error: ${err.message}`);
+    });
+
+    (geminiWs as any).on('unexpected-response', (_req: any, res: any) => {
+      let body = '';
+      res.on('data', (chunk: Buffer) => {
+        body += chunk.toString();
+      });
+      res.on('end', () => {
+        this.logger.error(
+          `❌ Gemini WS unexpected HTTP response: status=${res.statusCode}, body=${body}`,
+        );
+      });
     });
 
     return geminiWs;
@@ -26,7 +43,7 @@ export class GeminiLiveRelayService {
   private sendHandshakeSetup(ws: WebSocket, systemPrompt: string) {
     let modelName = this.configService.get<string>(
       'GEMINI_LIVE_MODEL',
-      'gemini-2.5-flash-preview-native-audio-dialog',
+      'gemini-3.1-flash-live-preview',
     );
     if (!modelName.startsWith('models/')) {
       modelName = `models/${modelName}`;
@@ -142,12 +159,10 @@ export class GeminiLiveRelayService {
 
     const message = {
       realtimeInput: {
-        mediaChunks: [
-          {
-            mimeType: 'audio/pcm;rate=16000',
-            data: pcmChunk.toString('base64'),
-          },
-        ],
+        audio: {
+          mimeType: 'audio/pcm;rate=16000',
+          data: pcmChunk.toString('base64'),
+        },
       },
     };
 

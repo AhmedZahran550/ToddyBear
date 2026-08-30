@@ -279,6 +279,16 @@ export class GeminiLiveGateway
           await this.handleToolCall(session, call);
         }
       }
+
+      // E. Turn Complete Signal (model finished speaking its turn)
+      if (response.serverContent?.turnComplete) {
+        this.logger.log(
+          `🏁 Gemini model turn complete for session [${session.sessionId}]`,
+        );
+        if (session.toyWs.readyState === ClientSocket.OPEN) {
+          session.toyWs.send(JSON.stringify({ cmd: 'TURN_COMPLETE' }));
+        }
+      }
     } catch (err) {
       this.logger.error(
         `Error parsing Gemini message [Session: ${session.sessionId}]: ${err.message}`,
